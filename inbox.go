@@ -10,13 +10,9 @@ var (
 	ErrInboxClosed = errors.New("inbox closed")
 )
 
-type Address struct {
-	Name string
-}
-
 type Envelope struct {
-	To      Address
-	From    Address
+	To      PID
+	From    PID
 	Message any
 }
 
@@ -43,7 +39,6 @@ func (in *Inbox) Process(ctx context.Context, proc Processor) {
 			for env := range in.box {
 				proc.Process(ctx, env)
 			}
-
 			in.wg.Done()
 		}()
 	})
@@ -61,6 +56,13 @@ func (in *Inbox) Deliver(env Envelope) error {
 }
 
 func (in *Inbox) Close() {
-	in.closeOnce.Do(func() { close(in.closeCh); close(in.box) })
+	in.closeOnce.Do(func() {
+		close(in.closeCh)
+		close(in.box)
+	})
+}
+
+func (in *Inbox) Drain() {
+	in.Close()
 	in.wg.Wait()
 }

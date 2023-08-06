@@ -1,33 +1,21 @@
 package actor
 
-import "context"
-
-type Processor interface {
-	Process(ctx context.Context, env Envelope)
-}
+import "sync"
 
 type Receiver interface {
 	Receive(ctx *Context)
 }
 
-type Context struct {
-	ctx    context.Context
-	engine *Engine
+type ReceiverFunc func(*Context)
+
+func (f ReceiverFunc) Receive(ctx *Context) {
+	f(ctx)
 }
 
-func (ctx *Context) Context() context.Context {
-	if ctx == nil {
-		return context.Background()
-	}
-	return ctx.ctx
+type poisonPill struct {
+	wg *sync.WaitGroup
 }
 
-// Send message to another actor (core functionality)
-func (ctx *Context) Send(addr Address, msg any) {
-	ctx.engine.Deliver(Envelope{To: addr, Message: msg})
-}
-
-// Spawn a new actor (core functionality)
-func (ctx *Context) Spawn() {
-
-}
+type Initialized struct{}
+type Started struct{}
+type Stopped struct{}
