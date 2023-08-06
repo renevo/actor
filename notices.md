@@ -4,7 +4,7 @@ This repository incorporates material as listed belore, or described in the code
 
 ---
 
-[Anthony De Meulemeester](https://github.com/anthdm) Hollywood (https://github.com/anthdm/hollywood/)
+### [Anthony De Meulemeester](https://github.com/anthdm) - [Hollywood](https://github.com/anthdm/hollywood/)
 
 ```
 MIT License
