@@ -1,7 +1,6 @@
 package actor
 
 import (
-	"context"
 	"fmt"
 	"os"
 	"strings"
@@ -41,7 +40,7 @@ type Processor interface {
 	PID() PID
 	Start()
 	Send(to PID, msg any, from PID)
-	Process(ctx context.Context, env Envelope)
+	Process(env Envelope)
 	Shutdown(wg *sync.WaitGroup)
 }
 
@@ -63,7 +62,7 @@ func newProcessor(engine *Engine, opts Options) *processor {
 		context: ctx,
 	}
 
-	proc.inbox.Process(opts.BaseContext, proc)
+	proc.inbox.Process(proc)
 
 	return proc
 }
@@ -78,7 +77,7 @@ func (p *processor) Send(_ PID, msg any, from PID) {
 	}
 }
 
-func (p *processor) Process(ctx context.Context, env Envelope) {
+func (p *processor) Process(env Envelope) {
 	defer func() {
 		if v := recover(); v != nil {
 			p.context.message = Stopped{}
@@ -95,7 +94,6 @@ func (p *processor) Process(ctx context.Context, env Envelope) {
 		return
 	}
 
-	p.context.ctx = ctx
 	p.context.message = env.Message
 	p.context.sender = env.From
 	rcv := p.context.receiver

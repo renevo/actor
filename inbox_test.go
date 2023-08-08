@@ -1,7 +1,6 @@
 package actor_test
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"sync"
@@ -11,11 +10,11 @@ import (
 )
 
 type testProcessor struct {
-	processFn func(ctx context.Context, env actor.Envelope)
+	processFn func(env actor.Envelope)
 }
 
-func (tp *testProcessor) Process(ctx context.Context, env actor.Envelope) {
-	tp.processFn(ctx, env)
+func (tp *testProcessor) Process(env actor.Envelope) {
+	tp.processFn(env)
 }
 
 func (tp *testProcessor) PID() actor.PID {
@@ -36,7 +35,7 @@ func (tp *testProcessor) Shutdown(wg *sync.WaitGroup) {
 
 func TestInbox(t *testing.T) {
 	inbox := actor.NewInbox(128)
-	inbox.Process(context.Background(), &testProcessor{processFn: func(ctx context.Context, env actor.Envelope) {
+	inbox.Process(&testProcessor{processFn: func(env actor.Envelope) {
 		t.Logf("TO: %+v; From: %+v; Message: %+v;", env.To, env.From, env.Message)
 	}})
 

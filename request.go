@@ -43,10 +43,10 @@ func (r *response) Send(_ PID, msg any, _ PID) {
 	r.result <- msg
 }
 
-func (r *response) PID() PID                          { return r.pid }
-func (r *response) Shutdown(_ *sync.WaitGroup)        {}
-func (r *response) Start()                            {}
-func (r *response) Process(context.Context, Envelope) {}
+func (r *response) PID() PID                   { return r.pid }
+func (r *response) Shutdown(_ *sync.WaitGroup) {}
+func (r *response) Start()                     {}
+func (r *response) Process(Envelope)           {}
 
 func (e *Engine) Request(to PID, msg any, timeout time.Duration) (any, error) {
 	resp := newResponse(e, timeout)

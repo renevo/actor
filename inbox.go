@@ -1,7 +1,6 @@
 package actor
 
 import (
-	"context"
 	"errors"
 	"sync"
 )
@@ -31,13 +30,13 @@ func NewInbox(size int) *Inbox {
 	return in
 }
 
-func (in *Inbox) Process(ctx context.Context, proc Processor) {
+func (in *Inbox) Process(proc Processor) {
 	in.startOnce.Do(func() {
 		in.wg.Add(1)
 
 		go func() {
 			for env := range in.box {
-				proc.Process(ctx, env)
+				proc.Process(env)
 			}
 			in.wg.Done()
 		}()

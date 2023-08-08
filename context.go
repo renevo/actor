@@ -1,9 +1,5 @@
 package actor
 
-import (
-	"context"
-)
-
 type Context struct {
 	pid           PID
 	sender        PID
@@ -11,7 +7,6 @@ type Context struct {
 	receiver      Receiver
 	message       any
 	parentContext *Context
-	ctx           context.Context
 	children      *safemap[string, PID]
 }
 
@@ -25,18 +20,6 @@ func newContext(e *Engine, pid PID) *Context {
 
 func (c *Context) Reciever() Receiver {
 	return c.receiver
-}
-
-func (c *Context) Context() context.Context {
-	if c.ctx == nil {
-		return context.Background()
-	}
-	return c.ctx
-}
-
-func (c *Context) WithContext(ctx context.Context) *Context {
-	c.ctx = ctx
-	return c
 }
 
 // Send message to another actor (core functionality)
