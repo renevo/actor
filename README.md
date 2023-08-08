@@ -19,7 +19,7 @@ TODO List:
   * [ ] Metrics
   * [ ] Tracing
 * [ ] Go Docs
-* [ ] CI
+* [x] CI
 * [ ] Remote Actors - this is where this will heavily deviate
 
 ## Disclaimer
