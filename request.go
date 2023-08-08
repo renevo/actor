@@ -51,7 +51,7 @@ func (r *response) Process(Envelope)           {}
 func (e *Engine) Request(to PID, msg any, timeout time.Duration) (any, error) {
 	resp := newResponse(e, timeout)
 	e.registry.add(resp)
-	e.SendWithSender(to, msg, resp.PID())
+	e.send(to, msg, resp.PID())
 	return resp.waitForResult()
 }
 

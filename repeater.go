@@ -4,8 +4,8 @@ import "time"
 
 type Repeater struct {
 	engine   *Engine
-	self     PID
-	target   PID
+	to       PID
+	from     PID
 	msg      any
 	interval time.Duration
 	stopCh   chan struct{}
@@ -19,7 +19,7 @@ func (r Repeater) start() {
 		for {
 			select {
 			case <-t.C:
-				r.engine.SendWithSender(r.target, r.msg, r.self)
+				r.engine.SendWithSender(r.to, r.msg, r.from)
 
 			case <-r.stopCh:
 				return
@@ -28,7 +28,7 @@ func (r Repeater) start() {
 	}()
 }
 
-// Stop the Repeater. This will panic if called more than once
+// Stop the Repeater. This will panic if called more than once.
 func (r Repeater) Stop() {
 	close(r.stopCh)
 }
@@ -38,8 +38,8 @@ func (r Repeater) Stop() {
 func (e *Engine) SendRepeat(to PID, msg any, interval time.Duration) Repeater {
 	repeater := Repeater{
 		engine:   e,
-		self:     e.pid,
-		target:   to,
+		to:       to,
+		from:     e.pid,
 		interval: interval,
 		msg:      msg,
 		stopCh:   make(chan struct{}, 1),
@@ -54,8 +54,8 @@ func (e *Engine) SendRepeat(to PID, msg any, interval time.Duration) Repeater {
 func (c *Context) SendRepeat(to PID, msg any, interval time.Duration) Repeater {
 	repeater := Repeater{
 		engine:   c.engine,
-		self:     c.pid,
-		target:   to,
+		to:       to,
+		from:     c.pid,
 		interval: interval,
 		msg:      msg,
 		stopCh:   make(chan struct{}, 1),
