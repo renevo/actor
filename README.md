@@ -12,7 +12,7 @@ TODO List:
 * [x] Middleware
 * [x] Repeaters
 * [x] RPC (Request / Reply)
-* [ ] Context passthrough (Send needs to be modified to pass them through)
+* [x] Context passthrough (Send needs to be modified to pass them through)
 * [ ] Events
 * [ ] Observability
   * [ ] Logging

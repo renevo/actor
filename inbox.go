@@ -14,10 +14,11 @@ type Envelope struct {
 	To      PID
 	From    PID
 	Message any
+	Context context.Context
 }
 
 type Inbox struct {
-	box       chan Envelope
+	box       chan *Envelope
 	closeCh   chan struct{}
 	closeOnce sync.Once
 	startOnce sync.Once
@@ -26,25 +27,25 @@ type Inbox struct {
 
 func NewInbox(size int) *Inbox {
 	in := &Inbox{}
-	in.box = make(chan Envelope, size)
+	in.box = make(chan *Envelope, size)
 	in.closeCh = make(chan struct{})
 	return in
 }
 
-func (in *Inbox) Process(ctx context.Context, proc Processor) {
+func (in *Inbox) Process(proc Processor) {
 	in.startOnce.Do(func() {
 		in.wg.Add(1)
 
 		go func() {
 			for env := range in.box {
-				proc.Process(ctx, env)
+				proc.Process(env)
 			}
 			in.wg.Done()
 		}()
 	})
 }
 
-func (in *Inbox) Deliver(env Envelope) error {
+func (in *Inbox) Deliver(env *Envelope) error {
 	select {
 	case <-in.closeCh:
 		return ErrInboxClosed

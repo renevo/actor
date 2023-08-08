@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"sync"
 	"time"
@@ -63,7 +64,7 @@ type message struct {
 func main() {
 	e := actor.NewEngine()
 	pid := e.Spawn(newFooReceiver(), "foo")
-	e.Send(pid, message{data: fmt.Sprintf("msg_%d", 1)})
+	e.Send(context.Background(), pid, message{data: fmt.Sprintf("msg_%d", 1)})
 
 	wg := &sync.WaitGroup{}
 	e.Poison(pid, wg)

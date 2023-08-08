@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"sync"
 
@@ -32,8 +33,8 @@ func (f *foo) Receive(ctx *actor.Context) {
 func main() {
 	engine := actor.NewEngine()
 	pid := engine.Spawn(newFoo(), "foo", actor.WithMaxRestarts(3))
-	engine.Send(pid, &message{data: "failed"})
-	engine.Send(pid, &message{data: "hello world!"})
+	engine.Send(context.Background(), pid, &message{data: "failed"})
+	engine.Send(context.Background(), pid, &message{data: "hello world!"})
 
 	wg := &sync.WaitGroup{}
 	engine.Poison(pid, wg)

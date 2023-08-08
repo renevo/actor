@@ -1,6 +1,7 @@
 package actor_test
 
 import (
+	"context"
 	"fmt"
 	"strconv"
 	"sync"
@@ -38,9 +39,9 @@ func TestRestarts(t *testing.T) {
 		}
 	}, "foo", actor.WithRestartDelay(time.Millisecond*10), actor.WithTags("bar"))
 
-	engine.Send(pid, payload{1})
-	engine.Send(pid, payload{2})
-	engine.Send(pid, payload{10})
+	engine.Send(context.Background(), pid, payload{1})
+	engine.Send(context.Background(), pid, payload{2})
+	engine.Send(context.Background(), pid, payload{10})
 	engine.Poison(pid, wg)
 
 	wg.Wait()
@@ -68,26 +69,10 @@ func TestProcessInitStartOrder(t *testing.T) {
 		}
 	}, "tst")
 
-	engine.Send(pid, 1)
+	engine.Send(context.Background(), pid, 1)
 	wg.Wait()
-}
-
-func TestSendWithSender(t *testing.T) {
-	engine := actor.NewEngine()
-	sender := actor.NewPID("local", "sender")
-	wg := &sync.WaitGroup{}
-
-	wg.Add(1)
-	pid := engine.SpawnFunc(func(c *actor.Context) {
-		if _, ok := c.Message().(string); ok {
-			assert.NotNil(t, c.Sender())
-			assert.Equal(t, sender, c.Sender())
-			wg.Done()
-		}
-	}, "test")
-
-	engine.SendWithSender(pid, "data", sender)
-	wg.Wait()
+	assert.True(t, init)
+	assert.True(t, started)
 }
 
 func TestSendMsgRaceCon(t *testing.T) {
@@ -104,7 +89,7 @@ func TestSendMsgRaceCon(t *testing.T) {
 	for i := 0; i < 100; i++ {
 		wg.Add(1)
 		go func() {
-			engine.Send(pid, []byte("f"))
+			engine.Send(context.Background(), pid, []byte("f"))
 			wg.Done()
 		}()
 	}
@@ -121,7 +106,7 @@ func TestSpawn(t *testing.T) {
 			tag := strconv.Itoa(i)
 			pid := engine.Spawn(NewTestReceiver(t, func(t *testing.T, ctx *actor.Context) {
 			}), "dummy", actor.WithTags(tag))
-			engine.Send(pid, 1)
+			engine.Send(context.Background(), pid, 1)
 			wg.Done()
 		}(i)
 	}
@@ -198,9 +183,10 @@ func TestRequestResponse(t *testing.T) {
 	assert.Equal(t, "bar", resp)
 }
 
-func BenchmarkEngine(b *testing.B) {
+func BenchmarkEngineSend(b *testing.B) {
 	engine := actor.NewEngine()
 	pid := engine.SpawnFunc(func(*actor.Context) {}, "bench", actor.WithInboxSize(1024*8))
+	ctx := context.Background()
 	payload := make([]byte, 128)
 	wg := &sync.WaitGroup{}
 
@@ -208,7 +194,29 @@ func BenchmarkEngine(b *testing.B) {
 	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
-		engine.Send(pid, payload)
+		engine.Send(ctx, pid, payload)
+	}
+
+	engine.Poison(pid, wg)
+	wg.Wait()
+}
+
+func BenchmarkEngineRequest(b *testing.B) {
+	engine := actor.NewEngine()
+	pid := engine.SpawnFunc(func(ctx *actor.Context) {
+		switch ctx.Message().(type) {
+		case []byte:
+			ctx.Respond(ctx.Message())
+		}
+	}, "bench", actor.WithInboxSize(1024*8))
+	payload := make([]byte, 128)
+	wg := &sync.WaitGroup{}
+
+	b.ReportAllocs()
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		_, _ = engine.Request(pid, payload, time.Second)
 	}
 
 	engine.Poison(pid, wg)
