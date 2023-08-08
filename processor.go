@@ -113,8 +113,8 @@ func (p *processor) cleanup(wg *sync.WaitGroup) {
 			}
 			proc := p.context.engine.registry.get(pid)
 
-			// don't tell the deadletter to shutdown...
-			if proc.PID() == p.context.engine.deadletter {
+			// don't tell the deadletter to shutdown (like ever)...
+			if proc.PID().Equals(p.context.engine.deadletter) {
 				continue
 			}
 

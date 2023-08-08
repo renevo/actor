@@ -16,7 +16,6 @@ func (r *registry) get(pid PID) Processor {
 		return proc
 	}
 
-	// TODO: deadletter
 	return nil
 }
 
@@ -26,7 +25,7 @@ func (r *registry) add(proc Processor) {
 
 	id := proc.PID().ID
 	if _, ok := r.lookup[id]; ok {
-		// handle duplicates
+		// TODO: handle duplicates
 		return
 	}
 
