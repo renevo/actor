@@ -21,12 +21,20 @@ func NewPID(address string, id ...string) PID {
 	}
 }
 
+func (p PID) Equals(pid PID) bool {
+	return pid.Address == p.Address && pid.ID == p.ID
+}
+
 func (p PID) String() string {
 	return p.Address + AddressSeparator + p.ID
 }
 
 func (p PID) Child(id ...string) PID {
 	return NewPID(p.Address, p.ID+AddressSeparator+strings.Join(id, AddressSeparator))
+}
+
+func (p PID) IsZero() bool {
+	return p.Address == "" && p.ID == ""
 }
 
 type Processor interface {
@@ -55,7 +63,7 @@ func newProcessor(engine *Engine, opts Options) *processor {
 		context: ctx,
 	}
 
-	proc.inbox.Process(opts.Context, proc)
+	proc.inbox.Process(opts.BaseContext, proc)
 
 	return proc
 }
@@ -90,33 +98,39 @@ func (p *processor) Process(ctx context.Context, env Envelope) {
 	p.context.ctx = ctx
 	p.context.message = env.Message
 	p.context.sender = env.From
-	recv := p.context.receiver
-	// TODO: middleware
-	recv.Receive(p.context)
+	rcv := p.context.receiver
+
+	p.applyMiddleware(rcv.Receive, p.Options.Middleware...)(p.context)
 }
 
 func (p *processor) Start() {
-	recv := p.Receiver
-	p.context.receiver = recv
+	rcv := p.Receiver
+	p.context.receiver = rcv
+
 	p.context.message = Initialized{}
-	// TODO: apply middleware
-	recv.Receive(p.context)
+	p.applyMiddleware(rcv.Receive, p.Options.Middleware...)(p.context)
 
 	p.context.message = Started{}
-	// TODO: apply middleware
-	recv.Receive(p.context)
+	p.applyMiddleware(rcv.Receive, p.Options.Middleware...)(p.context)
 }
 
 func (p *processor) Shutdown(wg *sync.WaitGroup) {
 	p.cleanup(wg)
 }
 
+func (p *processor) applyMiddleware(rcv ReceiverFunc, middleware ...Middleware) ReceiverFunc {
+	for i := len(middleware) - 1; i >= 0; i-- {
+		rcv = middleware[i](rcv)
+	}
+	return rcv
+}
+
 func (p *processor) cleanup(wg *sync.WaitGroup) {
 	p.inbox.Close()
 	p.context.engine.registry.remove(p.pid)
+
 	p.context.message = Stopped{}
-	// TODO: apply middleware
-	p.context.receiver.Receive(p.context)
+	p.applyMiddleware(p.context.receiver.Receive, p.Options.Middleware...)(p.context)
 
 	if p.context.parentContext != nil {
 		p.context.parentContext.children.Delete(p.pid.ID)
@@ -129,6 +143,12 @@ func (p *processor) cleanup(wg *sync.WaitGroup) {
 				wg.Add(1)
 			}
 			proc := p.context.engine.registry.get(pid)
+
+			// don't tell the deadletter to shutdown...
+			if proc.PID() == p.context.engine.deadletter {
+				continue
+			}
+
 			proc.Shutdown(wg)
 		}
 	}

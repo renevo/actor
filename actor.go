@@ -12,6 +12,8 @@ func (f ReceiverFunc) Receive(ctx *Context) {
 	f(ctx)
 }
 
+type Middleware func(ReceiverFunc) ReceiverFunc
+
 type poisonPill struct {
 	wg *sync.WaitGroup
 }

@@ -7,9 +7,13 @@ However, the goals of this project is to take it a bit further.
 TODO List:
 
 * [x] Basic Actor Model
-* [ ] Port more tests from hollywood (rewrite the current ones intead of copy/pasta)
-* [ ] Dead letter
-* [ ] Middleware
+* [x] Port more tests from hollywood
+* [x] Dead letter
+* [x] Middleware
+* [x] Repeaters
+* [x] RPC (Request / Reply)
+* [ ] Context passthrough (Send needs to be modified to pass them through)
+* [ ] Events
 * [ ] Observability
   * [ ] Logging
   * [ ] Metrics

@@ -1,6 +1,9 @@
 package actor
 
-import "sync"
+import (
+	"strings"
+	"sync"
+)
 
 var (
 	AddressSeparator = "."
@@ -11,8 +14,9 @@ const (
 )
 
 type Engine struct {
-	pid      PID
-	registry *registry
+	pid        PID
+	deadletter PID
+	registry   *registry
 }
 
 func NewEngine() *Engine {
@@ -24,8 +28,15 @@ func NewEngine() *Engine {
 
 	// put the engine into the registry
 	e.registry.engine = e
-	e.pid = e.SpawnFunc(func(ctx *Context) {}, "engine")
+	e.pid = e.SpawnFunc(func(ctx *Context) {
+		// TODO: engine stuff
+	}, "engine")
 	e.pid.Address = LocalAddress
+
+	e.deadletter = e.SpawnFunc(func(ctx *Context) {
+		// TODO: Deadletter stuff
+	}, "engine", WithTags("deadletter"), WithInboxSize(defaultInboxSize*4))
+	e.deadletter.Address = LocalAddress
 
 	return e
 }
@@ -65,7 +76,7 @@ func (e *Engine) Send(to PID, msg any) {
 func (e *Engine) send(to PID, msg any, from PID) {
 	proc := e.registry.get(to)
 	if proc == nil {
-		return
+		proc = e.registry.get(e.deadletter)
 	}
 
 	proc.Send(to, msg, from)
@@ -82,4 +93,14 @@ func (e *Engine) Poison(to PID, wg *sync.WaitGroup) {
 	}
 
 	e.send(to, poisonPill{wg: wg}, e.pid)
+}
+
+func (e *Engine) GetPID(id ...string) PID {
+	pid := PID{Address: LocalAddress, ID: strings.Join(id, AddressSeparator)}
+	proc := e.registry.get(pid)
+	if proc == nil {
+		return e.deadletter
+	}
+
+	return pid
 }

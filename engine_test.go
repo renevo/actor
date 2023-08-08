@@ -14,14 +14,14 @@ import (
 )
 
 func TestRestarts(t *testing.T) {
-	e := actor.NewEngine()
-	wg := sync.WaitGroup{}
+	engine := actor.NewEngine()
+	wg := &sync.WaitGroup{}
 	type payload struct {
 		data int
 	}
 
 	wg.Add(1)
-	pid := e.SpawnFunc(func(c *actor.Context) {
+	pid := engine.SpawnFunc(func(c *actor.Context) {
 		t.Logf("PID %s Received %T", c.PID(), c.Message())
 
 		switch msg := c.Message().(type) {
@@ -38,21 +38,20 @@ func TestRestarts(t *testing.T) {
 		}
 	}, "foo", actor.WithRestartDelay(time.Millisecond*10), actor.WithTags("bar"))
 
-	e.Send(pid, payload{1})
-	e.Send(pid, payload{2})
-	e.Send(pid, payload{10})
-	e.Poison(pid, &wg)
+	engine.Send(pid, payload{1})
+	engine.Send(pid, payload{2})
+	engine.Send(pid, payload{10})
+	engine.Poison(pid, wg)
 
 	wg.Wait()
 }
 
 func TestProcessInitStartOrder(t *testing.T) {
-	var (
-		e             = actor.NewEngine()
-		wg            = sync.WaitGroup{}
-		started, init bool
-	)
-	pid := e.SpawnFunc(func(c *actor.Context) {
+	engine := actor.NewEngine()
+	wg := &sync.WaitGroup{}
+	var started, init bool
+
+	pid := engine.SpawnFunc(func(c *actor.Context) {
 		switch c.Message().(type) {
 		case actor.Initialized:
 			fmt.Println("init")
@@ -68,34 +67,34 @@ func TestProcessInitStartOrder(t *testing.T) {
 			wg.Done()
 		}
 	}, "tst")
-	e.Send(pid, 1)
+
+	engine.Send(pid, 1)
 	wg.Wait()
 }
 
 func TestSendWithSender(t *testing.T) {
-	var (
-		e      = actor.NewEngine()
-		sender = actor.NewPID("local", "sender")
-		wg     = sync.WaitGroup{}
-	)
-	wg.Add(1)
+	engine := actor.NewEngine()
+	sender := actor.NewPID("local", "sender")
+	wg := &sync.WaitGroup{}
 
-	pid := e.SpawnFunc(func(c *actor.Context) {
+	wg.Add(1)
+	pid := engine.SpawnFunc(func(c *actor.Context) {
 		if _, ok := c.Message().(string); ok {
 			assert.NotNil(t, c.Sender())
 			assert.Equal(t, sender, c.Sender())
 			wg.Done()
 		}
 	}, "test")
-	e.SendWithSender(pid, "data", sender)
+
+	engine.SendWithSender(pid, "data", sender)
 	wg.Wait()
 }
 
 func TestSendMsgRaceCon(t *testing.T) {
-	e := actor.NewEngine()
-	wg := sync.WaitGroup{}
+	engine := actor.NewEngine()
+	wg := &sync.WaitGroup{}
 
-	pid := e.SpawnFunc(func(c *actor.Context) {
+	pid := engine.SpawnFunc(func(c *actor.Context) {
 		msg := c.Message()
 		if msg == nil {
 			fmt.Println("should never happen")
@@ -105,7 +104,7 @@ func TestSendMsgRaceCon(t *testing.T) {
 	for i := 0; i < 100; i++ {
 		wg.Add(1)
 		go func() {
-			e.Send(pid, []byte("f"))
+			engine.Send(pid, []byte("f"))
 			wg.Done()
 		}()
 	}
@@ -113,16 +112,16 @@ func TestSendMsgRaceCon(t *testing.T) {
 }
 
 func TestSpawn(t *testing.T) {
-	e := actor.NewEngine()
-	wg := sync.WaitGroup{}
+	engine := actor.NewEngine()
+	wg := &sync.WaitGroup{}
 
 	for i := 0; i < 10; i++ {
 		wg.Add(1)
 		go func(i int) {
 			tag := strconv.Itoa(i)
-			pid := e.Spawn(NewTestReceiver(t, func(t *testing.T, ctx *actor.Context) {
+			pid := engine.Spawn(NewTestReceiver(t, func(t *testing.T, ctx *actor.Context) {
 			}), "dummy", actor.WithTags(tag))
-			e.Send(pid, 1)
+			engine.Send(pid, 1)
 			wg.Done()
 		}(i)
 	}
@@ -130,14 +129,12 @@ func TestSpawn(t *testing.T) {
 }
 
 func TestPoisonWaitGroup(t *testing.T) {
-	var (
-		e  = actor.NewEngine()
-		wg = sync.WaitGroup{}
-		x  = int32(0)
-	)
-	wg.Add(1)
+	engine := actor.NewEngine()
+	wg := sync.WaitGroup{}
+	x := int32(0)
 
-	pid := e.SpawnFunc(func(c *actor.Context) {
+	wg.Add(1)
+	pid := engine.SpawnFunc(func(c *actor.Context) {
 		switch c.Message().(type) {
 		case actor.Started:
 			wg.Done()
@@ -148,7 +145,72 @@ func TestPoisonWaitGroup(t *testing.T) {
 	wg.Wait()
 
 	pwg := &sync.WaitGroup{}
-	e.Poison(pid, pwg)
+	engine.Poison(pid, pwg)
 	pwg.Wait()
 	assert.Equal(t, int32(1), atomic.LoadInt32(&x))
+}
+
+type tick struct{}
+type tickReceiver struct {
+	ticks int
+	wg    *sync.WaitGroup
+}
+
+func (r *tickReceiver) Receive(c *actor.Context) {
+	switch c.Message().(type) {
+	case tick:
+		r.ticks++
+		if r.ticks == 10 {
+			r.wg.Done()
+		}
+	}
+}
+
+func newTickReceiver(wg *sync.WaitGroup) actor.Receiver {
+	return &tickReceiver{
+		wg: wg,
+	}
+}
+
+func TestSendRepeat(t *testing.T) {
+	engine := actor.NewEngine()
+	wg := &sync.WaitGroup{}
+
+	wg.Add(1)
+	pid := engine.Spawn(newTickReceiver(wg), "test")
+	repeater := engine.SendRepeat(pid, tick{}, time.Millisecond*2)
+	wg.Wait()
+	repeater.Stop()
+}
+
+func TestRequestResponse(t *testing.T) {
+	engine := actor.NewEngine()
+	pid := engine.Spawn(NewTestReceiver(t, func(t *testing.T, ctx *actor.Context) {
+		if msg, ok := ctx.Message().(string); ok {
+			assert.Equal(t, "foo", msg)
+			ctx.Respond("bar")
+		}
+	}), "dummy")
+
+	resp, err := engine.Request(pid, "foo", time.Millisecond)
+
+	assert.Nil(t, err)
+	assert.Equal(t, "bar", resp)
+}
+
+func BenchmarkEngine(b *testing.B) {
+	engine := actor.NewEngine()
+	pid := engine.SpawnFunc(func(*actor.Context) {}, "bench", actor.WithInboxSize(1024*8))
+	payload := make([]byte, 128)
+	wg := &sync.WaitGroup{}
+
+	b.ReportAllocs()
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		engine.Send(pid, payload)
+	}
+
+	engine.Poison(pid, wg)
+	wg.Wait()
 }

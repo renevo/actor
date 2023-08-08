@@ -1,6 +1,8 @@
 package actor
 
-import "context"
+import (
+	"context"
+)
 
 type Context struct {
 	pid           PID
@@ -25,75 +27,92 @@ func (c *Context) Reciever() Receiver {
 	return c.receiver
 }
 
-func (ctx *Context) Context() context.Context {
-	if ctx == nil {
+func (c *Context) Context() context.Context {
+	if c.ctx == nil {
 		return context.Background()
 	}
-	return ctx.ctx
+	return c.ctx
+}
+
+func (c *Context) WithContext(ctx context.Context) *Context {
+	c.ctx = ctx
+	return c
 }
 
 // Send message to another actor (core functionality)
-func (ctx *Context) Send(to PID, msg any) {
-	ctx.engine.SendWithSender(to, msg, ctx.pid)
+func (c *Context) Send(to PID, msg any) {
+	c.engine.SendWithSender(to, msg, c.pid)
 }
 
 // Forward the current message to another PID
-func (ctx *Context) Forward(to PID) {
-	ctx.engine.SendWithSender(to, ctx.message, ctx.pid)
+func (c *Context) Forward(to PID) {
+	c.engine.SendWithSender(to, c.message, c.pid)
 }
 
-func (ctx *Context) PID() PID {
-	return ctx.pid
+func (c *Context) GetPID(id ...string) PID {
+	return c.engine.GetPID(id...)
 }
 
-func (ctx *Context) Sender() PID {
-	return ctx.sender
+func (c *Context) PID() PID {
+	return c.pid
 }
 
-func (ctx *Context) Engine() *Engine {
-	return ctx.engine
+func (c *Context) Sender() PID {
+	return c.sender
 }
 
-func (ctx *Context) Message() any {
-	return ctx.message
+func (c *Context) Engine() *Engine {
+	return c.engine
 }
 
-func (ctx *Context) Parent() PID {
-	if ctx.parentContext != nil {
-		return ctx.parentContext.pid
+func (c *Context) Message() any {
+	return c.message
+}
+
+func (c *Context) Parent() PID {
+	if c.parentContext != nil {
+		return c.parentContext.pid
 	}
 
-	return ctx.engine.pid
+	return c.engine.pid
 }
 
-func (ctx *Context) Child(id string) (PID, bool) {
-	return ctx.children.Get(id)
+func (c *Context) Child(id string) (PID, bool) {
+	return c.children.Get(id)
 }
 
-func (ctx *Context) Children() []PID {
-	pids := make([]PID, ctx.children.Len())
+func (c *Context) Children() []PID {
+	pids := make([]PID, c.children.Len())
 	i := 0
-	ctx.children.ForEach(func(_ string, child PID) {
+	c.children.ForEach(func(_ string, child PID) {
 		pids[i] = child
 		i++
 	})
 	return pids
 }
 
+// Receiver returns the underlying receiver of this Context.
+func (c *Context) Receiver() Receiver {
+	return c.receiver
+}
+
 // Spawn a new actor (core functionality)
-func (ctx *Context) Spawn(receiver Receiver, name string, opts ...Option) PID {
+func (c *Context) Spawn(receiver Receiver, name string, opts ...Option) PID {
 	options := DefaultOptions(receiver)
-	options.ID = []string{ctx.PID().ID, name}
+	options.ID = []string{c.PID().ID, name}
 	for _, opt := range opts {
 		opt(&options)
 	}
-	proc := newProcessor(ctx.engine, options)
-	proc.context.parentContext = ctx
-	pid := ctx.engine.SpawnProcessor(proc)
-	ctx.children.Set(pid.ID, pid)
+	proc := newProcessor(c.engine, options)
+	proc.context.parentContext = c
+	pid := c.engine.SpawnProcessor(proc)
+	c.children.Set(pid.ID, pid)
 
 	return proc.PID()
 }
 
-// TODO: Add repeaters
+func (c *Context) SpawnFunc(fn ReceiverFunc, name string, opts ...Option) PID {
+	return c.Spawn(fn, name, opts...)
+}
+
 // TODO: Add request/response
