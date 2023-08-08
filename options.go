@@ -14,12 +14,13 @@ var (
 )
 
 type Options struct {
-	ID           []string
+	Name         string
 	Receiver     Receiver
 	InboxSize    int
 	MaxRestarts  int32
 	RestartDelay time.Duration
 	Middleware   []Middleware
+	Tags         []string
 }
 
 type Option func(*Options)
@@ -59,6 +60,6 @@ func WithMiddleware(middleware ...Middleware) Option {
 
 func WithTags(tags ...string) Option {
 	return func(opts *Options) {
-		opts.ID = append(opts.ID, tags...)
+		opts.Tags = append(opts.Tags, tags...)
 	}
 }

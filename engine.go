@@ -5,12 +5,9 @@ import (
 	"sync"
 )
 
-var (
-	AddressSeparator = "."
-)
-
 const (
 	LocalAddress = "local"
+	pidSeparator = "."
 )
 
 type Engine struct {
@@ -43,7 +40,7 @@ func NewEngine() *Engine {
 
 func (e *Engine) Spawn(receiver Receiver, name string, opts ...Option) PID {
 	options := DefaultOptions(receiver)
-	options.ID = []string{name}
+	options.Name = name
 	for _, opt := range opts {
 		opt(&options)
 	}
@@ -63,10 +60,6 @@ func (e *Engine) SpawnProcessor(proc Processor) PID {
 
 func (e *Engine) Address() string {
 	return e.pid.Address
-}
-
-func (e *Engine) SendWithSender(to PID, msg any, from PID) {
-	e.send(to, msg, from)
 }
 
 func (e *Engine) Send(to PID, msg any) {
@@ -95,8 +88,8 @@ func (e *Engine) Poison(to PID, wg *sync.WaitGroup) {
 	e.send(to, poisonPill{wg: wg}, e.pid)
 }
 
-func (e *Engine) GetPID(id ...string) PID {
-	pid := PID{Address: LocalAddress, ID: strings.Join(id, AddressSeparator)}
+func (e *Engine) GetPID(name string, tags ...string) PID {
+	pid := PID{Address: LocalAddress, ID: strings.Join(append([]string{name}, tags...), pidSeparator)}
 	proc := e.registry.get(pid)
 	if proc == nil {
 		return e.deadletter

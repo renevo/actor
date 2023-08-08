@@ -13,10 +13,10 @@ type PID struct {
 	ID      string
 }
 
-func NewPID(address string, id ...string) PID {
+func NewPID(address string, name string, tags ...string) PID {
 	return PID{
 		Address: address,
-		ID:      strings.Join(id, AddressSeparator),
+		ID:      strings.Join(append([]string{name}, tags...), pidSeparator),
 	}
 }
 
@@ -25,11 +25,11 @@ func (p PID) Equals(pid PID) bool {
 }
 
 func (p PID) String() string {
-	return p.Address + AddressSeparator + p.ID
+	return p.Address + pidSeparator + p.ID
 }
 
-func (p PID) Child(id ...string) PID {
-	return NewPID(p.Address, p.ID+AddressSeparator+strings.Join(id, AddressSeparator))
+func (p PID) Child(name string, tags ...string) PID {
+	return NewPID(p.Address, p.ID, append([]string{name}, tags...)...)
 }
 
 func (p PID) IsZero() bool {
@@ -53,7 +53,7 @@ type processor struct {
 }
 
 func newProcessor(engine *Engine, opts Options) *processor {
-	pid := NewPID(engine.pid.Address, opts.ID...)
+	pid := NewPID(engine.pid.Address, opts.Name, opts.Tags...)
 	ctx := newContext(engine, pid)
 	proc := &processor{
 		pid:     pid,

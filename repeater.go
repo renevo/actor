@@ -19,7 +19,7 @@ func (r Repeater) start() {
 		for {
 			select {
 			case <-t.C:
-				r.engine.SendWithSender(r.to, r.msg, r.from)
+				r.engine.send(r.to, r.msg, r.from)
 
 			case <-r.stopCh:
 				return

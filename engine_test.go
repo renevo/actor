@@ -72,24 +72,6 @@ func TestProcessInitStartOrder(t *testing.T) {
 	wg.Wait()
 }
 
-func TestSendWithSender(t *testing.T) {
-	engine := actor.NewEngine()
-	sender := actor.NewPID("local", "sender")
-	wg := &sync.WaitGroup{}
-
-	wg.Add(1)
-	pid := engine.SpawnFunc(func(c *actor.Context) {
-		if _, ok := c.Message().(string); ok {
-			assert.NotNil(t, c.Sender())
-			assert.Equal(t, sender, c.Sender())
-			wg.Done()
-		}
-	}, "test")
-
-	engine.SendWithSender(pid, "data", sender)
-	wg.Wait()
-}
-
 func TestSendMsgRaceCon(t *testing.T) {
 	engine := actor.NewEngine()
 	wg := &sync.WaitGroup{}

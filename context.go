@@ -24,16 +24,16 @@ func (c *Context) Reciever() Receiver {
 
 // Send message to another actor (core functionality)
 func (c *Context) Send(to PID, msg any) {
-	c.engine.SendWithSender(to, msg, c.pid)
+	c.engine.send(to, msg, c.pid)
 }
 
 // Forward the current message to another PID
 func (c *Context) Forward(to PID) {
-	c.engine.SendWithSender(to, c.message, c.pid)
+	c.engine.send(to, c.message, c.pid)
 }
 
-func (c *Context) GetPID(id ...string) PID {
-	return c.engine.GetPID(id...)
+func (c *Context) GetPID(name string, tags ...string) PID {
+	return c.engine.GetPID(name, tags...)
 }
 
 func (c *Context) PID() PID {
@@ -82,7 +82,9 @@ func (c *Context) Receiver() Receiver {
 // Spawn a new actor (core functionality)
 func (c *Context) Spawn(receiver Receiver, name string, opts ...Option) PID {
 	options := DefaultOptions(receiver)
-	options.ID = []string{c.PID().ID, name}
+	options.Name = c.PID().ID
+	options.Tags = []string{name}
+
 	for _, opt := range opts {
 		opt(&options)
 	}
