@@ -1,6 +1,7 @@
 package actor
 
 import (
+	"context"
 	"errors"
 	"sync"
 )
@@ -13,10 +14,11 @@ type Envelope struct {
 	To      PID
 	From    PID
 	Message any
+	Context context.Context
 }
 
 type Inbox struct {
-	box       chan Envelope
+	box       chan *Envelope
 	closeCh   chan struct{}
 	closeOnce sync.Once
 	startOnce sync.Once
@@ -25,7 +27,7 @@ type Inbox struct {
 
 func NewInbox(size int) *Inbox {
 	in := &Inbox{}
-	in.box = make(chan Envelope, size)
+	in.box = make(chan *Envelope, size)
 	in.closeCh = make(chan struct{})
 	return in
 }
@@ -43,7 +45,7 @@ func (in *Inbox) Process(proc Processor) {
 	})
 }
 
-func (in *Inbox) Deliver(env Envelope) error {
+func (in *Inbox) Deliver(env *Envelope) error {
 	select {
 	case <-in.closeCh:
 		return ErrInboxClosed

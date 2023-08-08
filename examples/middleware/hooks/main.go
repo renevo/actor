@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"sync"
 	"time"
@@ -50,7 +51,7 @@ func main() {
 	pid := e.Spawn(newFoo(), "foo", actor.WithMiddleware(WithHooks()))
 
 	// Send a message to foo
-	e.Send(pid, "Hello sailor!")
+	e.Send(context.Background(), pid, "Hello sailor!")
 
 	// We sleep here so we are sure foo received our message
 	time.Sleep(time.Second)

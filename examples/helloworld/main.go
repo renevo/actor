@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"sync"
 
@@ -34,7 +35,7 @@ func main() {
 	engine := actor.NewEngine()
 	pid := engine.Spawn(newFoo(), "foo")
 	for i := 0; i < 10; i++ {
-		engine.Send(pid, &message{data: "hello world!"})
+		engine.Send(context.Background(), pid, &message{data: "hello world!"})
 	}
 
 	wg := &sync.WaitGroup{}

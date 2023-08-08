@@ -1,6 +1,7 @@
 package actor
 
 import (
+	"context"
 	"strings"
 	"sync"
 )
@@ -14,13 +15,24 @@ type Engine struct {
 	pid        PID
 	deadletter PID
 	registry   *registry
+	options    *Options
 }
 
-func NewEngine() *Engine {
+func NewEngine(defaultOpts ...Option) *Engine {
+	options := &Options{
+		InboxSize:    defaultInboxSize,
+		MaxRestarts:  defaultMaxRestarts,
+		RestartDelay: defaultRestartDelay,
+	}
+	for _, opt := range defaultOpts {
+		opt(options)
+	}
+
 	e := &Engine{
 		registry: &registry{
 			lookup: make(map[string]Processor),
 		},
+		options: options,
 	}
 
 	// put the engine into the registry
@@ -39,11 +51,12 @@ func NewEngine() *Engine {
 }
 
 func (e *Engine) Spawn(receiver Receiver, name string, opts ...Option) PID {
-	options := DefaultOptions(receiver)
+	options := copyOptions(e.options, receiver)
 	options.Name = name
 	for _, opt := range opts {
-		opt(&options)
+		opt(options)
 	}
+
 	proc := newProcessor(e, options)
 	return e.SpawnProcessor(proc)
 }
@@ -62,17 +75,17 @@ func (e *Engine) Address() string {
 	return e.pid.Address
 }
 
-func (e *Engine) Send(to PID, msg any) {
-	e.send(to, msg, e.pid)
+func (e *Engine) Send(ctx context.Context, to PID, msg any) {
+	e.send(ctx, to, msg, e.pid)
 }
 
-func (e *Engine) send(to PID, msg any, from PID) {
+func (e *Engine) send(ctx context.Context, to PID, msg any, from PID) {
 	proc := e.registry.get(to)
 	if proc == nil {
 		proc = e.registry.get(e.deadletter)
 	}
 
-	proc.Send(to, msg, from)
+	proc.Send(ctx, to, msg, from)
 }
 
 func (e *Engine) Poison(to PID, wg *sync.WaitGroup) {
@@ -85,7 +98,8 @@ func (e *Engine) Poison(to PID, wg *sync.WaitGroup) {
 		wg.Add(1)
 	}
 
-	e.send(to, poisonPill{wg: wg}, e.pid)
+	// we intentionally use background here as we won't use it, so we dn't need it (yet)
+	e.send(context.Background(), to, poisonPill{wg: wg}, e.pid)
 }
 
 func (e *Engine) GetPID(name string, tags ...string) PID {

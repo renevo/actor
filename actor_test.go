@@ -1,6 +1,7 @@
 package actor_test
 
 import (
+	"context"
 	"sync"
 	"testing"
 
@@ -45,7 +46,7 @@ func TestMiddleware(t *testing.T) {
 			},
 		))
 
-	engine.Send(pid, "hello")
+	engine.Send(context.Background(), pid, "hello")
 
 	wg := &sync.WaitGroup{}
 	engine.Poison(pid, wg)

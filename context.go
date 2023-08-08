@@ -1,11 +1,14 @@
 package actor
 
+import "context"
+
 type Context struct {
 	pid           PID
 	sender        PID
 	engine        *Engine
 	receiver      Receiver
 	message       any
+	ctx           context.Context
 	parentContext *Context
 	children      *safemap[string, PID]
 }
@@ -23,13 +26,13 @@ func (c *Context) Reciever() Receiver {
 }
 
 // Send message to another actor (core functionality)
-func (c *Context) Send(to PID, msg any) {
-	c.engine.send(to, msg, c.pid)
+func (c *Context) Send(ctx context.Context, to PID, msg any) {
+	c.engine.send(ctx, to, msg, c.pid)
 }
 
 // Forward the current message to another PID
 func (c *Context) Forward(to PID) {
-	c.engine.send(to, c.message, c.pid)
+	c.engine.send(c.ctx, to, c.message, c.pid)
 }
 
 func (c *Context) GetPID(name string, tags ...string) PID {
@@ -81,12 +84,12 @@ func (c *Context) Receiver() Receiver {
 
 // Spawn a new actor (core functionality)
 func (c *Context) Spawn(receiver Receiver, name string, opts ...Option) PID {
-	options := DefaultOptions(receiver)
+	options := copyOptions(c.engine.options, receiver)
 	options.Name = c.PID().ID
 	options.Tags = []string{name}
 
 	for _, opt := range opts {
-		opt(&options)
+		opt(options)
 	}
 	proc := newProcessor(c.engine, options)
 	proc.context.parentContext = c
@@ -100,4 +103,11 @@ func (c *Context) SpawnFunc(fn ReceiverFunc, name string, opts ...Option) PID {
 	return c.Spawn(fn, name, opts...)
 }
 
-// TODO: Add request/response
+func (c *Context) Context() context.Context {
+	return c.ctx
+}
+
+func (c *Context) WithContext(ctx context.Context) *Context {
+	c.ctx = ctx
+	return c
+}

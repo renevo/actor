@@ -1,9 +1,13 @@
 package actor
 
-import "time"
+import (
+	"context"
+	"time"
+)
 
 type Repeater struct {
 	engine   *Engine
+	ctx      context.Context
 	to       PID
 	from     PID
 	msg      any
@@ -19,7 +23,7 @@ func (r Repeater) start() {
 		for {
 			select {
 			case <-t.C:
-				r.engine.send(r.to, r.msg, r.from)
+				r.engine.send(r.ctx, r.to, r.msg, r.from)
 
 			case <-r.stopCh:
 				return
@@ -44,6 +48,7 @@ func (e *Engine) SendRepeat(to PID, msg any, interval time.Duration) Repeater {
 		msg:      msg,
 		stopCh:   make(chan struct{}, 1),
 	}
+	repeater.ctx = repeater.engine.options.Context
 	repeater.start()
 
 	return repeater
@@ -60,6 +65,8 @@ func (c *Context) SendRepeat(to PID, msg any, interval time.Duration) Repeater {
 		msg:      msg,
 		stopCh:   make(chan struct{}, 1),
 	}
+	repeater.ctx = c.ctx
 	repeater.start()
+
 	return repeater
 }
