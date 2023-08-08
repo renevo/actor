@@ -108,14 +108,13 @@ func (p *processor) cleanup(wg *sync.WaitGroup) {
 	if p.context.children.Len() > 0 {
 		children := p.context.Children()
 		for _, pid := range children {
+			proc := p.context.engine.registry.get(pid)
+			if proc == nil {
+				continue
+			}
+
 			if wg != nil {
 				wg.Add(1)
-			}
-			proc := p.context.engine.registry.get(pid)
-
-			// don't tell the deadletter to shutdown (like ever)...
-			if proc.PID().Equals(p.context.engine.deadletter) {
-				continue
 			}
 
 			proc.Shutdown(wg)
