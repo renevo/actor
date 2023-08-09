@@ -2,7 +2,7 @@ package actor_test
 
 import (
 	"context"
-	"fmt"
+	"log/slog"
 	"strconv"
 	"sync"
 	"sync/atomic"
@@ -55,15 +55,15 @@ func TestProcessInitStartOrder(t *testing.T) {
 	pid := engine.SpawnFunc(func(c *actor.Context) {
 		switch c.Message().(type) {
 		case actor.Initialized:
-			fmt.Println("init")
+			slog.Info("init")
 			wg.Add(1)
 			init = true
 		case actor.Started:
-			fmt.Println("start")
+			slog.Info("start")
 			require.True(t, init)
 			started = true
 		case int:
-			fmt.Println("msg")
+			slog.Info("msg")
 			require.True(t, started)
 			wg.Done()
 		}
@@ -82,7 +82,7 @@ func TestSendMsgRaceCon(t *testing.T) {
 	pid := engine.SpawnFunc(func(c *actor.Context) {
 		msg := c.Message()
 		if msg == nil {
-			fmt.Println("should never happen")
+			slog.Error("should never happen")
 		}
 	}, "test")
 

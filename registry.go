@@ -1,6 +1,10 @@
 package actor
 
-import "sync"
+import (
+	"log/slog"
+	"reflect"
+	"sync"
+)
 
 type registry struct {
 	mu     sync.RWMutex
@@ -24,8 +28,8 @@ func (r *registry) add(proc Processor) {
 	defer r.mu.Unlock()
 
 	id := proc.PID().ID
-	if _, ok := r.lookup[id]; ok {
-		// TODO: handle duplicates
+	if existing, ok := r.lookup[id]; ok {
+		slog.Warn("Attempt to register duplicate process.", "pid", proc.PID(), "existing", reflect.TypeOf(existing), "conflict", reflect.TypeOf(proc))
 		return
 	}
 
