@@ -2,6 +2,8 @@ package actor
 
 import (
 	"context"
+	"log/slog"
+	"reflect"
 	"strings"
 	"sync"
 )
@@ -43,7 +45,15 @@ func NewEngine(defaultOpts ...Option) *Engine {
 	e.pid.Address = LocalAddress
 
 	e.deadletter = e.SpawnFunc(func(ctx *Context) {
-		// TODO: Deadletter stuff
+		switch ctx.Message().(type) {
+		case Initialized, Started, Stopped:
+			// if we have anything, add it here
+
+		default:
+			// TODO: publish deadletter to Events once we have them
+			slog.Warn("Deadletter", "to", ctx.sender, "from", ctx.sender, "msg", reflect.TypeOf(ctx.Message()))
+		}
+
 	}, "engine", WithTags("deadletter"), WithInboxSize(defaultInboxSize*4))
 	e.deadletter.Address = LocalAddress
 

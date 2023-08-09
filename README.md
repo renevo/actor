@@ -30,7 +30,7 @@ This is under heavy development, and should not be used before a 1.0.0 release, 
 
 The Actor Model is a computational model used to build highly concurrent and distributed systems. It was introduced by Carl Hewitt in 1973 as a way to handle complex systems in a more scalable and fault-tolerant manner.
 
-In the Actor Model, the basic building block is an actor, called receiver in Hollywood, which is an independent unit of computation that communicates with other actors by exchanging messages. Each actor has its own state and behavior, and can only communicate with other actors by sending messages. This message-passing paradigm allows for a highly decentralized and fault-tolerant system, as actors can continue to operate independently even if other actors fail or become unavailable.
+In the Actor Model, the basic building block is an actor, called receiver in this package, which is an independent unit of computation that communicates with other actors by exchanging messages. Each actor has its own state and behavior, and can only communicate with other actors by sending messages. This message-passing paradigm allows for a highly decentralized and fault-tolerant system, as actors can continue to operate independently even if other actors fail or become unavailable.
 
 Actors can be organized into hierarchies, with higher-level actors supervising and coordinating lower-level actors. This allows for the creation of complex systems that can handle failures and errors in a graceful and predictable way.
 

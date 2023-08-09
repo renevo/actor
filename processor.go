@@ -2,8 +2,8 @@ package actor
 
 import (
 	"context"
-	"fmt"
-	"os"
+	"log/slog"
+	"reflect"
 	"sync"
 	"time"
 )
@@ -61,7 +61,7 @@ func (p *processor) Send(ctx context.Context, _ PID, msg any, from PID) {
 	}
 
 	if err := p.inbox.Deliver(envelope); err != nil {
-		fmt.Fprintf(os.Stderr, "failed to deliver message to %s; from: %s; type: %T: %v\n", p.pid, from, msg, err)
+		slog.Error("Failed to deliver message to inbox.", "inbox", p.pid, "from", from, "msg", reflect.TypeOf(msg), "err", err)
 	}
 }
 
@@ -158,12 +158,12 @@ func (p *processor) tryRestart(v any) {
 	p.restarts++
 
 	if p.restarts >= p.options.MaxRestarts {
-		fmt.Fprintf(os.Stderr, "Process max restarts exceeded, shutting down: pid: %s; restarts: %d\n", p.pid, p.restarts)
+		slog.Error("Actor process max restarts exceeded, shutting down.", "pid", p.pid, "restarts", p.restarts)
 		p.cleanup(nil)
 		return
 	}
 
-	fmt.Fprintf(os.Stderr, "Process actor restarting: count: %d; maxRestarts: %d; pid: %s; reason: %v\n", p.restarts, p.options.MaxRestarts, p.pid, v)
+	slog.Warn("Actor process restarting.", "pid", p.pid, "count", p.restarts, "maxRestarts", p.options.MaxRestarts, "err", v)
 	time.Sleep(p.options.RestartDelay)
 	p.Start()
 }
