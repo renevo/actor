@@ -20,13 +20,10 @@ func main() {
 	engine := actor.NewEngine(actor.WithContext(ctx))
 	pid := engine.SpawnFunc(
 		func(ctx *actor.Context) {
-			switch ctx.Message().(type) {
-			case string:
-				hasEngineKey := ctx.Context().Value(engineKey)
-				hasMiddlewareKey := ctx.Context().Value(middlewareKey)
+			hasEngineKey := ctx.Context().Value(engineKey)
+			hasMiddlewareKey := ctx.Context().Value(middlewareKey)
 
-				fmt.Printf("Engine: %t; Middleware: %t;\n", hasEngineKey, hasMiddlewareKey)
-			}
+			fmt.Printf("Engine: %t; Middleware: %t; Type: %T;\n", hasEngineKey, hasMiddlewareKey, ctx.Message())
 		},
 		"test",
 		actor.WithMiddleware(func(next actor.ReceiverFunc) actor.ReceiverFunc {
