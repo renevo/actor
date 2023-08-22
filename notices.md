@@ -1,6 +1,6 @@
 # Notices
 
-This repository incorporates material as listed belore, or described in the code.
+This repository incorporates material as listed below, or described in the code.
 
 ---
 
