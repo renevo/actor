@@ -50,9 +50,9 @@ func (p *processor) PID() PID {
 	return p.pid
 }
 
-func (p *processor) Send(ctx context.Context, _ PID, msg any, from PID) {
+func (p *processor) Send(ctx context.Context, to PID, msg any, from PID) {
 	envelope := p.pool.Get().(*Envelope)
-	envelope.To = p.pid
+	envelope.To = to
 	envelope.From = from
 	envelope.Message = msg
 	envelope.Context = ctx
@@ -88,6 +88,7 @@ func (p *processor) Process(env *Envelope) {
 
 	p.context.message = env.Message
 	p.context.sender = env.From
+	p.context.target = env.To
 	p.context.ctx = env.Context
 
 	// TODO: Check to see if context.Deadline and drop if Options say we should

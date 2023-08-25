@@ -17,6 +17,9 @@ type Middleware func(ReceiverFunc) ReceiverFunc
 type poisonPill struct {
 	wg *sync.WaitGroup
 }
+type shutdownWaiter struct {
+	wg *sync.WaitGroup
+}
 
 type Initialized struct{}
 type Started struct{}

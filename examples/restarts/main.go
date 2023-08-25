@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"fmt"
-	"sync"
 
 	"github.com/renevo/actor"
 )
@@ -36,7 +35,5 @@ func main() {
 	engine.Send(context.Background(), pid, &message{data: "failed"})
 	engine.Send(context.Background(), pid, &message{data: "hello world!"})
 
-	wg := &sync.WaitGroup{}
-	engine.Poison(pid, wg)
-	wg.Wait()
+	engine.ShutdownAndWait()
 }

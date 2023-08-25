@@ -4,6 +4,7 @@ import "context"
 
 type Context struct {
 	pid           PID
+	target        PID
 	sender        PID
 	engine        *Engine
 	receiver      Receiver

@@ -40,20 +40,28 @@ func NewEngine(defaultOpts ...Option) *Engine {
 	// put the engine into the registry
 	e.registry.engine = e
 	e.pid = e.SpawnFunc(func(ctx *Context) {
-		// TODO: engine stuff
+		switch msg := ctx.Message().(type) {
+		case *shutdownWaiter:
+			if msg.wg != nil {
+				msg.wg.Wait()
+			}
+		}
 	}, "engine")
 	e.pid.Address = LocalAddress
 
 	e.deadletter = e.SpawnFunc(func(ctx *Context) {
-		switch ctx.Message().(type) {
+		switch msg := ctx.Message().(type) {
 		case Initialized, Started, Stopped:
 			// if we have anything, add it here
 
+		case *shutdownWaiter:
+			if msg.wg != nil {
+				msg.wg.Wait()
+			}
 		default:
+			slog.Warn("Deadletter", "to", ctx.target, "from", ctx.sender, "msg", reflect.TypeOf(ctx.Message()))
 			// TODO: publish deadletter to Events once we have them
-			slog.Warn("Deadletter", "to", ctx.sender, "from", ctx.sender, "msg", reflect.TypeOf(ctx.Message()))
 		}
-
 	}, "engine", WithTags("deadletter"), WithInboxSize(defaultInboxSize*4))
 	e.deadletter.Address = LocalAddress
 
@@ -120,4 +128,52 @@ func (e *Engine) GetPID(name string, tags ...string) PID {
 	}
 
 	return pid
+}
+
+func (e *Engine) Shutdown(wg *sync.WaitGroup) {
+	var toShutdown []PID
+
+	active := e.registry.copy()
+	for pid, proc := range active {
+		// we don't want the engine
+		if pid.Equals(e.pid) {
+			continue
+		}
+
+		// we don't want deadletter
+		if pid.Equals(e.deadletter) {
+			continue
+		}
+
+		internalProcessor, ok := proc.(*processor)
+		if !ok {
+			continue
+		}
+
+		// we only want actors that don't have a parent (i.e. root actors)
+		if !internalProcessor.context.Parent().Equals(e.pid) {
+			continue
+		}
+
+		toShutdown = append(toShutdown, pid)
+	}
+
+	var shutdownWG sync.WaitGroup
+	for _, pid := range toShutdown {
+		e.Poison(pid, &shutdownWG)
+	}
+
+	// send these that will block until all the others are shutdown
+	e.Send(context.Background(), e.pid, &shutdownWaiter{wg: &shutdownWG})
+	e.Send(context.Background(), e.pid, &shutdownWaiter{wg: &shutdownWG})
+
+	// tell our engine/deadletter to die
+	e.Poison(e.pid, wg)
+	e.Poison(e.deadletter, wg)
+}
+
+func (e *Engine) ShutdownAndWait() {
+	var wg sync.WaitGroup
+	e.Shutdown(&wg)
+	wg.Wait()
 }
