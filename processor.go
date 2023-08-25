@@ -2,7 +2,6 @@ package actor
 
 import (
 	"context"
-	"log/slog"
 	"reflect"
 	"sync"
 	"time"
@@ -21,7 +20,7 @@ type processor struct {
 	inbox    *Inbox
 	context  *Context
 	pid      PID
-	restarts int32
+	restarts int
 	pool     sync.Pool
 }
 
@@ -61,7 +60,7 @@ func (p *processor) Send(ctx context.Context, to PID, msg any, from PID) {
 	}
 
 	if err := p.inbox.Deliver(envelope); err != nil {
-		slog.Error("Failed to deliver message to inbox.", "inbox", p.pid, "from", from, "msg", reflect.TypeOf(msg), "err", err)
+		p.context.logger.Error("Failed to deliver message to inbox.", "inbox", p.pid, "from", from, "msg", reflect.TypeOf(msg), "err", err)
 	}
 }
 
@@ -159,12 +158,12 @@ func (p *processor) tryRestart(v any) {
 	p.restarts++
 
 	if p.restarts >= p.options.MaxRestarts {
-		slog.Error("Actor process max restarts exceeded, shutting down.", "pid", p.pid, "restarts", p.restarts)
+		p.context.logger.Error("Actor process max restarts exceeded, shutting down.", "pid", p.pid, "restarts", p.restarts)
 		p.cleanup(nil)
 		return
 	}
 
-	slog.Warn("Actor process restarting.", "pid", p.pid, "count", p.restarts, "maxRestarts", p.options.MaxRestarts, "err", v)
+	p.context.logger.Warn("Actor process restarting.", "pid", p.pid, "count", p.restarts, "maxRestarts", p.options.MaxRestarts, "err", v)
 	time.Sleep(p.options.RestartDelay)
 	p.Start()
 }

@@ -2,7 +2,7 @@ package actor_test
 
 import (
 	"context"
-	"sync"
+	"reflect"
 	"testing"
 
 	"github.com/matryer/is"
@@ -36,9 +36,9 @@ func TestMiddleware(t *testing.T) {
 	pid := engine.SpawnFunc(func(ctx *actor.Context) {
 		switch ctx.Message().(type) {
 		case string:
-			t.Logf("Hello, %s! (%T)", ctx.Message(), ctx.Message())
+			ctx.Log().Info("Hello", "name", ctx.Message(), "type", reflect.TypeOf(ctx.Message()))
 		}
-	}, "middleware-tester",
+	}, "TestMiddleware",
 		actor.WithMiddleware(
 			func(next actor.ReceiverFunc) actor.ReceiverFunc {
 				return func(ctx *actor.Context) {
@@ -48,11 +48,9 @@ func TestMiddleware(t *testing.T) {
 			},
 		))
 
-	engine.Send(context.Background(), pid, "hello")
+	engine.Send(context.Background(), pid, "world")
 
-	wg := &sync.WaitGroup{}
-	engine.Poison(pid, wg)
-	wg.Wait()
+	engine.ShutdownAndWait()
 
 	is.Equal(callCount, 4) // middleware was not called correct amount of times
 }

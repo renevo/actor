@@ -2,7 +2,6 @@ package actor_test
 
 import (
 	"context"
-	"log/slog"
 	"strconv"
 	"sync"
 	"sync/atomic"
@@ -19,21 +18,19 @@ func TestRestarts(t *testing.T) {
 		data int
 	}
 
-	pid := engine.SpawnFunc(func(c *actor.Context) {
-		t.Logf("PID %s Received %T", c.PID(), c.Message())
-
-		switch msg := c.Message().(type) {
+	pid := engine.SpawnFunc(func(ctx *actor.Context) {
+		switch msg := ctx.Message().(type) {
 		case actor.Started:
 		case actor.Stopped:
-			t.Log("stopped!")
+			ctx.Log().Info("stopped!")
 		case payload:
 			if msg.data != 10 {
 				panic("I failed to process this message")
 			} else {
-				t.Logf("finally processed all my messsages after borking %v.", msg.data)
+				ctx.Log().Info("finally processed all my messsages after borking", "data", msg.data)
 			}
 		}
-	}, "foo", actor.WithRestartDelay(time.Millisecond*10), actor.WithTags("bar"))
+	}, "TestRestarts", actor.WithRestartDelay(time.Millisecond*10), actor.WithTags("bar"))
 
 	engine.Send(context.Background(), pid, payload{1})
 	engine.Send(context.Background(), pid, payload{2})
@@ -48,22 +45,22 @@ func TestProcessInitStartOrder(t *testing.T) {
 	wg := &sync.WaitGroup{}
 	var started, init bool
 
-	pid := engine.SpawnFunc(func(c *actor.Context) {
-		switch c.Message().(type) {
+	pid := engine.SpawnFunc(func(ctx *actor.Context) {
+		switch ctx.Message().(type) {
 		case actor.Initialized:
-			slog.Info("init")
+			ctx.Log().Info("init")
 			wg.Add(1)
 			init = true
 		case actor.Started:
-			slog.Info("start")
+			ctx.Log().Info("start")
 			is.True(init)
 			started = true
 		case int:
-			slog.Info("msg")
+			ctx.Log().Info("msg")
 			is.True(started)
 			wg.Done()
 		}
-	}, "tst")
+	}, "TestProcessInitStartOrder")
 
 	engine.Send(context.Background(), pid, 1)
 	wg.Wait()
@@ -75,12 +72,12 @@ func TestSendMsgRaceCon(t *testing.T) {
 	engine := actor.NewEngine()
 	wg := &sync.WaitGroup{}
 
-	pid := engine.SpawnFunc(func(c *actor.Context) {
-		msg := c.Message()
+	pid := engine.SpawnFunc(func(ctx *actor.Context) {
+		msg := ctx.Message()
 		if msg == nil {
-			slog.Error("should never happen")
+			ctx.Log().Error("should never happen")
 		}
-	}, "test")
+	}, "TestSendMsgRaceCon")
 
 	for i := 0; i < 100; i++ {
 		wg.Add(1)
@@ -101,7 +98,7 @@ func TestSpawn(t *testing.T) {
 		go func(i int) {
 			tag := strconv.Itoa(i)
 			pid := engine.Spawn(NewTestReceiver(t, func(t *testing.T, ctx *actor.Context) {
-			}), "dummy", actor.WithTags(tag))
+			}), "TestSpawn", actor.WithTags(tag))
 			engine.Send(context.Background(), pid, 1)
 			wg.Done()
 		}(i)
@@ -117,14 +114,14 @@ func TestPoisonWaitGroup(t *testing.T) {
 	x := int32(0)
 
 	wg.Add(1)
-	pid := engine.SpawnFunc(func(c *actor.Context) {
-		switch c.Message().(type) {
+	pid := engine.SpawnFunc(func(ctx *actor.Context) {
+		switch ctx.Message().(type) {
 		case actor.Started:
 			wg.Done()
 		case actor.Stopped:
 			atomic.AddInt32(&x, 1)
 		}
-	}, "foo")
+	}, "TestPoisonWaitGroup")
 	wg.Wait()
 
 	pwg := &sync.WaitGroup{}
@@ -160,7 +157,7 @@ func TestSendRepeat(t *testing.T) {
 	wg := &sync.WaitGroup{}
 
 	wg.Add(1)
-	pid := engine.Spawn(newTickReceiver(wg), "test")
+	pid := engine.Spawn(newTickReceiver(wg), "TestSendRepeat")
 	repeater := engine.SendRepeat(pid, tick{}, time.Millisecond*2)
 	wg.Wait()
 	repeater.Stop()
@@ -175,7 +172,7 @@ func TestRequestResponse(t *testing.T) {
 			is.Equal("foo", msg)
 			ctx.Respond("bar")
 		}
-	}), "dummy")
+	}), "TestRequestResponse")
 
 	resp, err := engine.Request(pid, "foo", time.Millisecond)
 
@@ -185,7 +182,7 @@ func TestRequestResponse(t *testing.T) {
 
 func BenchmarkEngineSend(b *testing.B) {
 	engine := actor.NewEngine()
-	pid := engine.SpawnFunc(func(*actor.Context) {}, "bench", actor.WithInboxSize(1024*8))
+	pid := engine.SpawnFunc(func(*actor.Context) {}, "BenchmarkEngineSend", actor.WithInboxSize(1024*8))
 	ctx := context.Background()
 	payload := make([]byte, 128)
 	wg := &sync.WaitGroup{}
@@ -208,7 +205,7 @@ func BenchmarkEngineRequest(b *testing.B) {
 		case []byte:
 			ctx.Respond(ctx.Message())
 		}
-	}, "bench", actor.WithInboxSize(1024*8))
+	}, "BenchmarkEngineRequest", actor.WithInboxSize(1024*8))
 	payload := make([]byte, 128)
 	wg := &sync.WaitGroup{}
 

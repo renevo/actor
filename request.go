@@ -2,7 +2,6 @@ package actor
 
 import (
 	"context"
-	"log/slog"
 	"math/rand"
 	"reflect"
 	"strconv"
@@ -74,7 +73,7 @@ func (c *Context) Request(to PID, msg any, timeout time.Duration) (any, error) {
 
 func (c *Context) Respond(msg any) {
 	if c.sender.IsZero() {
-		slog.Warn("Call to Respond with no sender in context.", "pid", c.pid, "msg", reflect.TypeOf(msg))
+		c.logger.Warn("Call to Respond with no sender in context.", "pid", c.pid, "msg", reflect.TypeOf(msg))
 		return
 	}
 

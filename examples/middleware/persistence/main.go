@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"log/slog"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -25,9 +24,9 @@ type PersistedActor struct {
 func (p *PersistedActor) Receive(ctx *actor.Context) {
 	switch msg := ctx.Message().(type) {
 	case actor.Started:
-		slog.Info("Startup", "last", p.LastTime)
+		ctx.Log().Info("Startup", "last", p.LastTime)
 	case actor.Stopped:
-		slog.Info("Shutdown", "last", p.LastTime)
+		ctx.Log().Info("Shutdown", "last", p.LastTime)
 	case time.Time:
 		p.LastTime = msg
 	}
@@ -43,7 +42,7 @@ func main() {
 			case actor.Initialized:
 				// load on initialize
 				if err := unmarshalActor(ctx.PID(), ctx.Receiver()); err != nil {
-					slog.Error("Failed to load actor", "err", err)
+					ctx.Log().With("middleware", "persistence").Error("Failed to load actor", "err", err)
 				}
 
 				next(ctx)
@@ -56,10 +55,10 @@ func main() {
 
 				// save after processing any other message
 				if err := marshalActor(ctx.PID(), ctx.Receiver()); err != nil {
-					slog.Error("Failed to save actor", "err", err)
+					ctx.Log().With("middleware", "persistence").Error("Failed to save actor", "err", err)
 					return
 				}
-				slog.Info("Saved State", "actor", ctx.PID(), "msg", reflect.TypeOf(ctx.Message()))
+				ctx.Log().With("middleware", "persistence").Info("Saved State", "msg", reflect.TypeOf(ctx.Message()))
 			}
 		}
 	})
