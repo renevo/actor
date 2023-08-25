@@ -41,3 +41,14 @@ func (r *registry) remove(pid PID) {
 	defer r.mu.Unlock()
 	delete(r.lookup, pid.ID)
 }
+
+func (r *registry) copy() map[PID]Processor {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	c := make(map[PID]Processor, len(r.lookup))
+	for k, v := range r.lookup {
+		c[PID{Address: r.engine.pid.Address, ID: k}] = v
+	}
+
+	return c
+}

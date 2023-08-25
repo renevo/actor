@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"fmt"
-	"sync"
 	"time"
 
 	"github.com/renevo/actor"
@@ -66,7 +65,5 @@ func main() {
 	pid := e.Spawn(newFooReceiver(), "foo")
 	e.Send(context.Background(), pid, message{data: fmt.Sprintf("msg_%d", 1)})
 
-	wg := &sync.WaitGroup{}
-	e.Poison(pid, wg)
-	wg.Wait()
+	e.ShutdownAndWait()
 }

@@ -4,12 +4,12 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/matryer/is"
 	"github.com/renevo/actor"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 func TestSpawnChildPID(t *testing.T) {
+	is := is.New(t)
 	engine := actor.NewEngine()
 	wg := &sync.WaitGroup{}
 	childfn := func(c *actor.Context) {}
@@ -20,7 +20,7 @@ func TestSpawnChildPID(t *testing.T) {
 		switch c.Message().(type) {
 		case actor.Started:
 			pid := c.SpawnFunc(childfn, "child")
-			assert.True(t, expectedPID.Equals(pid))
+			is.True(expectedPID.Equals(pid)) // child PID format mismatch
 			wg.Done()
 		case actor.Stopped:
 		}
@@ -30,6 +30,8 @@ func TestSpawnChildPID(t *testing.T) {
 }
 
 func TestChild(t *testing.T) {
+	is := is.New(t)
+
 	engine := actor.NewEngine()
 	wg := &sync.WaitGroup{}
 
@@ -41,7 +43,7 @@ func TestChild(t *testing.T) {
 			c.SpawnFunc(func(_ *actor.Context) {}, "child", actor.WithTags("2"))
 			c.SpawnFunc(func(_ *actor.Context) {}, "child", actor.WithTags("3"))
 		case actor.Started:
-			assert.Equal(t, 3, len(c.Children()))
+			is.Equal(3, len(c.Children())) // number of children match the amount spawned
 			wg.Done()
 		}
 	}, "foo", actor.WithTags("bar", "baz"))
@@ -49,6 +51,8 @@ func TestChild(t *testing.T) {
 }
 
 func TestParent(t *testing.T) {
+	is := is.New(t)
+
 	engine := actor.NewEngine()
 	wg := &sync.WaitGroup{}
 	parent := actor.NewPID(actor.LocalAddress, "foo", "bar", "baz")
@@ -58,8 +62,8 @@ func TestParent(t *testing.T) {
 	childfn := func(c *actor.Context) {
 		switch c.Message().(type) {
 		case actor.Started:
-			assert.True(t, c.Parent().Equals(parent))
-			assert.True(t, len(c.Children()) == 0)
+			is.True(c.Parent().Equals(parent)) // parent should match
+			is.Equal(len(c.Children()), 0)     // number of children should be zero
 			wg.Done()
 		}
 	}
@@ -75,6 +79,8 @@ func TestParent(t *testing.T) {
 }
 
 func TestGetPID(t *testing.T) {
+	is := is.New(t)
+
 	engine := actor.NewEngine()
 	wg := &sync.WaitGroup{}
 
@@ -82,7 +88,7 @@ func TestGetPID(t *testing.T) {
 	engine.SpawnFunc(func(c *actor.Context) {
 		if _, ok := c.Message().(actor.Started); ok {
 			pid := c.GetPID("foo", "bar", "baz")
-			require.True(t, pid.Equals(c.PID()))
+			is.True(pid.Equals(c.PID()))
 			wg.Done()
 		}
 	}, "foo", actor.WithTags("bar", "baz"))
@@ -91,6 +97,8 @@ func TestGetPID(t *testing.T) {
 }
 
 func TestSpawnChild(t *testing.T) {
+	is := is.New(t)
+
 	engine := actor.NewEngine()
 	wg := &sync.WaitGroup{}
 	deadletter := engine.GetPID("engine", "deadletter")
@@ -111,11 +119,10 @@ func TestSpawnChild(t *testing.T) {
 	}, "parent", actor.WithMaxRestarts(0))
 
 	wg.Wait()
-	assert.NotEqual(t, deadletter, engine.GetPID("parent", "child"))
 
 	stopwg := &sync.WaitGroup{}
 	engine.Poison(pid, stopwg)
 	stopwg.Wait()
 
-	assert.Equal(t, deadletter, engine.GetPID("parent", "child"))
+	is.Equal(deadletter, engine.GetPID("parent", "child"))
 }

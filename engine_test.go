@@ -9,19 +9,16 @@ import (
 	"testing"
 	"time"
 
+	"github.com/matryer/is"
 	"github.com/renevo/actor"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 func TestRestarts(t *testing.T) {
 	engine := actor.NewEngine()
-	wg := &sync.WaitGroup{}
 	type payload struct {
 		data int
 	}
 
-	wg.Add(1)
 	pid := engine.SpawnFunc(func(c *actor.Context) {
 		t.Logf("PID %s Received %T", c.PID(), c.Message())
 
@@ -34,7 +31,6 @@ func TestRestarts(t *testing.T) {
 				panic("I failed to process this message")
 			} else {
 				t.Logf("finally processed all my messsages after borking %v.", msg.data)
-				wg.Done()
 			}
 		}
 	}, "foo", actor.WithRestartDelay(time.Millisecond*10), actor.WithTags("bar"))
@@ -42,12 +38,12 @@ func TestRestarts(t *testing.T) {
 	engine.Send(context.Background(), pid, payload{1})
 	engine.Send(context.Background(), pid, payload{2})
 	engine.Send(context.Background(), pid, payload{10})
-	engine.Poison(pid, wg)
-
-	wg.Wait()
+	engine.ShutdownAndWait()
 }
 
 func TestProcessInitStartOrder(t *testing.T) {
+	is := is.New(t)
+
 	engine := actor.NewEngine()
 	wg := &sync.WaitGroup{}
 	var started, init bool
@@ -60,19 +56,19 @@ func TestProcessInitStartOrder(t *testing.T) {
 			init = true
 		case actor.Started:
 			slog.Info("start")
-			require.True(t, init)
+			is.True(init)
 			started = true
 		case int:
 			slog.Info("msg")
-			require.True(t, started)
+			is.True(started)
 			wg.Done()
 		}
 	}, "tst")
 
 	engine.Send(context.Background(), pid, 1)
 	wg.Wait()
-	assert.True(t, init)
-	assert.True(t, started)
+	is.True(init)
+	is.True(started)
 }
 
 func TestSendMsgRaceCon(t *testing.T) {
@@ -114,6 +110,8 @@ func TestSpawn(t *testing.T) {
 }
 
 func TestPoisonWaitGroup(t *testing.T) {
+	is := is.New(t)
+
 	engine := actor.NewEngine()
 	wg := sync.WaitGroup{}
 	x := int32(0)
@@ -132,7 +130,7 @@ func TestPoisonWaitGroup(t *testing.T) {
 	pwg := &sync.WaitGroup{}
 	engine.Poison(pid, pwg)
 	pwg.Wait()
-	assert.Equal(t, int32(1), atomic.LoadInt32(&x))
+	is.Equal(int32(1), atomic.LoadInt32(&x))
 }
 
 type tick struct{}
@@ -169,18 +167,20 @@ func TestSendRepeat(t *testing.T) {
 }
 
 func TestRequestResponse(t *testing.T) {
+	is := is.New(t)
+
 	engine := actor.NewEngine()
 	pid := engine.Spawn(NewTestReceiver(t, func(t *testing.T, ctx *actor.Context) {
 		if msg, ok := ctx.Message().(string); ok {
-			assert.Equal(t, "foo", msg)
+			is.Equal("foo", msg)
 			ctx.Respond("bar")
 		}
 	}), "dummy")
 
 	resp, err := engine.Request(pid, "foo", time.Millisecond)
 
-	assert.Nil(t, err)
-	assert.Equal(t, "bar", resp)
+	is.NoErr(err)
+	is.Equal("bar", resp)
 }
 
 func BenchmarkEngineSend(b *testing.B) {

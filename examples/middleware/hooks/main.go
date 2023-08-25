@@ -3,8 +3,6 @@ package main
 import (
 	"context"
 	"fmt"
-	"sync"
-	"time"
 
 	"github.com/renevo/actor"
 )
@@ -53,11 +51,6 @@ func main() {
 	// Send a message to foo
 	e.Send(context.Background(), pid, "Hello sailor!")
 
-	// We sleep here so we are sure foo received our message
-	time.Sleep(time.Second)
-
-	// Create a waitgroup so we can wait until foo has been stopped gracefully
-	wg := &sync.WaitGroup{}
-	e.Poison(pid, wg)
-	wg.Wait()
+	// calling ShutdownAndWait will guarantee that all messages before this call are processed
+	e.ShutdownAndWait()
 }

@@ -12,12 +12,12 @@ TODO List:
 * [x] Middleware
 * [x] Repeaters
 * [x] RPC (Request / Reply)
-* [x] Context passthrough (Send needs to be modified to pass them through)
+* [x] context.Context
 * [ ] Events
-* [ ] Observability
-  * [ ] Logging
-  * [ ] Metrics
-  * [ ] Tracing
+* [x] Observability - *can be supported through middleware*
+  * [x] Logging - *slog will be used internally to log things (global)*
+  * [ ] Metrics - *metrics can be hooked up, but need to hook up engine metrics / deadletter metrics*
+  * [x] Tracing - *tracing is supported via middleware*
 * [ ] Go Docs
 * [x] CI
 * [ ] Remote Actors - this is where this will heavily deviate

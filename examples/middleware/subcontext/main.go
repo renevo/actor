@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"fmt"
-	"sync"
 
 	"github.com/renevo/actor"
 )
@@ -36,7 +35,5 @@ func main() {
 	// this will overwrite the engine option context, so it is a good idea to use the one that was created originally
 	engine.Send(ctx, pid, "hello")
 
-	wg := &sync.WaitGroup{}
-	engine.Poison(pid, wg)
-	wg.Wait()
+	engine.ShutdownAndWait()
 }
