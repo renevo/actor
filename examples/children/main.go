@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"fmt"
-	"time"
 
 	"github.com/renevo/actor"
 )
@@ -23,16 +22,16 @@ func newBarReceiver(data string) actor.Receiver {
 func (r *barReceiver) Receive(ctx *actor.Context) {
 	switch msg := ctx.Message().(type) {
 	case actor.Started:
-		time.Sleep(time.Second)
+		ctx.Log().Info("started")
 		if restarts < 2 {
 			restarts++
 			panic("I will need to restart")
 		}
-		fmt.Println("bar recovered and started with initial state:", r.data)
+		ctx.Log().Warn("bar recovered and started with initial state", "data", r.data)
 	case message:
-		fmt.Println(msg.data)
+		ctx.Log().Info(msg.data)
 	case actor.Stopped:
-		fmt.Println("bar stopped")
+		ctx.Log().Info("stopped")
 	}
 }
 
@@ -47,12 +46,18 @@ func newFooReceiver() actor.Receiver {
 func (r *fooReceiver) Receive(ctx *actor.Context) {
 	switch msg := ctx.Message().(type) {
 	case actor.Started:
-		fmt.Println("foo started")
+		ctx.Log().Info("started")
 	case message:
-		r.barPID = ctx.Spawn(newBarReceiver(msg.data), "bar", actor.WithTags(msg.data))
-		fmt.Println("received and starting bar:", r.barPID)
+		if r.barPID.ID == "" {
+			// this is a fundamental flaw in the system
+			// if bar panics, it bubbles the panic up to this actor instead of the child
+			// this then also creates an entry in the registry that has a borked up processor, and we don't get the pid back here
+			// might need to make the inbox a pull rather than a push, and processor.Start kick off a go routine instead of the go routine being in the inbox
+			r.barPID = ctx.Spawn(newBarReceiver(msg.data), "bar", actor.WithTags(msg.data))
+			ctx.Log().Info("received and starting bar", "bar", r.barPID)
+		}
 	case actor.Stopped:
-		fmt.Println("foo will stop")
+		ctx.Log().Info("will stop")
 	}
 }
 
@@ -63,6 +68,8 @@ type message struct {
 func main() {
 	e := actor.NewEngine()
 	pid := e.Spawn(newFooReceiver(), "foo")
+	e.Send(context.Background(), pid, message{data: fmt.Sprintf("msg_%d", 1)})
+	e.Send(context.Background(), pid, message{data: fmt.Sprintf("msg_%d", 1)})
 	e.Send(context.Background(), pid, message{data: fmt.Sprintf("msg_%d", 1)})
 
 	e.ShutdownAndWait()

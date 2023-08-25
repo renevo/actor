@@ -2,7 +2,7 @@ package main
 
 import (
 	"context"
-	"fmt"
+	"reflect"
 
 	"github.com/renevo/actor"
 )
@@ -21,8 +21,7 @@ func main() {
 		func(ctx *actor.Context) {
 			hasEngineKey := ctx.Context().Value(engineKey)
 			hasMiddlewareKey := ctx.Context().Value(middlewareKey)
-
-			fmt.Printf("Engine: %t; Middleware: %t; Type: %T;\n", hasEngineKey, hasMiddlewareKey, ctx.Message())
+			ctx.Log().Info("Message", "engine", hasEngineKey, "middleware", hasMiddlewareKey, "type", reflect.TypeOf(ctx.Message()))
 		},
 		"test",
 		actor.WithMiddleware(func(next actor.ReceiverFunc) actor.ReceiverFunc {

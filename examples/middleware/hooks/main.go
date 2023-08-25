@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/renevo/actor"
 )
@@ -20,10 +19,10 @@ func newFoo() actor.Receiver {
 	return &foo{}
 }
 
-func (f *foo) Receive(c *actor.Context) {}
-func (f *foo) OnInit(c *actor.Context)  { fmt.Println("foo initialized") }
-func (f *foo) OnStart(c *actor.Context) { fmt.Println("foo started") }
-func (f *foo) OnStop(c *actor.Context)  { fmt.Println("foo stopped") }
+func (f *foo) Receive(ctx *actor.Context) {}
+func (f *foo) OnInit(ctx *actor.Context)  { ctx.Log().Info("foo initialized") }
+func (f *foo) OnStart(ctx *actor.Context) { ctx.Log().Info("foo started") }
+func (f *foo) OnStop(ctx *actor.Context)  { ctx.Log().Info("foo stopped") }
 
 func WithHooks() func(actor.ReceiverFunc) actor.ReceiverFunc {
 	return func(next actor.ReceiverFunc) actor.ReceiverFunc {

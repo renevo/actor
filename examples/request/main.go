@@ -1,8 +1,8 @@
 package main
 
 import (
-	"fmt"
 	"log"
+	"log/slog"
 	"time"
 
 	"github.com/renevo/actor"
@@ -30,13 +30,13 @@ func (r *nameResponder) Receive(ctx *actor.Context) {
 }
 
 func main() {
-	e := actor.NewEngine()
-	pid := e.Spawn(newNameResponder(), "responder")
+	engine := actor.NewEngine()
+	pid := engine.Spawn(newNameResponder(), "responder")
 	// Request a name and block till we got a response or the request timed out.
-	res, err := e.Request(pid, &nameRequest{}, time.Millisecond)
+	res, err := engine.Request(pid, &nameRequest{}, time.Millisecond)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	fmt.Println(res)
+	slog.Info("Response", "data", res)
 }

@@ -1,7 +1,6 @@
 package actor
 
 import (
-	"log/slog"
 	"reflect"
 	"sync"
 )
@@ -29,7 +28,7 @@ func (r *registry) add(proc Processor) {
 
 	id := proc.PID().ID
 	if existing, ok := r.lookup[id]; ok {
-		slog.Warn("Attempt to register duplicate process.", "pid", proc.PID(), "existing", reflect.TypeOf(existing), "conflict", reflect.TypeOf(proc))
+		r.engine.options.Logger.Warn("Attempt to register duplicate process.", "pid", proc.PID(), "existing", reflect.TypeOf(existing), "conflict", reflect.TypeOf(proc))
 		return
 	}
 

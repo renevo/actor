@@ -1,6 +1,9 @@
 package actor
 
-import "context"
+import (
+	"context"
+	"log/slog"
+)
 
 type Context struct {
 	pid           PID
@@ -12,6 +15,7 @@ type Context struct {
 	ctx           context.Context
 	parentContext *Context
 	children      *safemap[string, PID]
+	logger        *slog.Logger
 }
 
 func newContext(e *Engine, pid PID) *Context {
@@ -19,6 +23,7 @@ func newContext(e *Engine, pid PID) *Context {
 		engine:   e,
 		pid:      pid,
 		children: newMap[string, PID](),
+		logger:   e.options.Logger.With("actor", pid.String()),
 	}
 }
 
@@ -111,4 +116,8 @@ func (c *Context) Context() context.Context {
 func (c *Context) WithContext(ctx context.Context) *Context {
 	c.ctx = ctx
 	return c
+}
+
+func (c *Context) Log() *slog.Logger {
+	return c.logger
 }

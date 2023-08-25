@@ -25,6 +25,8 @@ func NewEngine(defaultOpts ...Option) *Engine {
 		InboxSize:    defaultInboxSize,
 		MaxRestarts:  defaultMaxRestarts,
 		RestartDelay: defaultRestartDelay,
+		Context:      context.Background(),
+		Logger:       slog.Default(),
 	}
 	for _, opt := range defaultOpts {
 		opt(options)
@@ -59,7 +61,7 @@ func NewEngine(defaultOpts ...Option) *Engine {
 				msg.wg.Wait()
 			}
 		default:
-			slog.Warn("Deadletter", "to", ctx.target, "from", ctx.sender, "msg", reflect.TypeOf(ctx.Message()))
+			ctx.Log().Warn("Deadletter", "to", ctx.target, "from", ctx.sender, "type", reflect.TypeOf(ctx.Message()))
 			// TODO: publish deadletter to Events once we have them
 		}
 	}, "engine", WithTags("deadletter"), WithInboxSize(defaultInboxSize*4))

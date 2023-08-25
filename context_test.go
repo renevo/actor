@@ -10,21 +10,23 @@ import (
 
 func TestSpawnChildPID(t *testing.T) {
 	is := is.New(t)
+
 	engine := actor.NewEngine()
 	wg := &sync.WaitGroup{}
-	childfn := func(c *actor.Context) {}
-	expectedPID := actor.NewPID(actor.LocalAddress, "parent", "child")
+
+	childfn := func(ctx *actor.Context) {}
+	expectedPID := actor.NewPID(actor.LocalAddress, "TestSpawnChildPID", "child")
 
 	wg.Add(1)
-	engine.SpawnFunc(func(c *actor.Context) {
-		switch c.Message().(type) {
+	engine.SpawnFunc(func(ctx *actor.Context) {
+		switch ctx.Message().(type) {
 		case actor.Started:
-			pid := c.SpawnFunc(childfn, "child")
+			pid := ctx.SpawnFunc(childfn, "child")
 			is.True(expectedPID.Equals(pid)) // child PID format mismatch
 			wg.Done()
 		case actor.Stopped:
 		}
-	}, "parent")
+	}, "TestSpawnChildPID")
 
 	wg.Wait()
 }
@@ -36,17 +38,17 @@ func TestChild(t *testing.T) {
 	wg := &sync.WaitGroup{}
 
 	wg.Add(1)
-	engine.SpawnFunc(func(c *actor.Context) {
-		switch c.Message().(type) {
+	engine.SpawnFunc(func(ctx *actor.Context) {
+		switch ctx.Message().(type) {
 		case actor.Initialized:
-			c.SpawnFunc(func(_ *actor.Context) {}, "child", actor.WithTags("1"))
-			c.SpawnFunc(func(_ *actor.Context) {}, "child", actor.WithTags("2"))
-			c.SpawnFunc(func(_ *actor.Context) {}, "child", actor.WithTags("3"))
+			ctx.SpawnFunc(func(_ *actor.Context) {}, "child", actor.WithTags("1"))
+			ctx.SpawnFunc(func(_ *actor.Context) {}, "child", actor.WithTags("2"))
+			ctx.SpawnFunc(func(_ *actor.Context) {}, "child", actor.WithTags("3"))
 		case actor.Started:
-			is.Equal(3, len(c.Children())) // number of children match the amount spawned
+			is.Equal(3, len(ctx.Children())) // number of children match the amount spawned
 			wg.Done()
 		}
-	}, "foo", actor.WithTags("bar", "baz"))
+	}, "TestChild", actor.WithTags("bar", "baz"))
 	wg.Wait()
 }
 
@@ -55,25 +57,24 @@ func TestParent(t *testing.T) {
 
 	engine := actor.NewEngine()
 	wg := &sync.WaitGroup{}
-	parent := actor.NewPID(actor.LocalAddress, "foo", "bar", "baz")
+	parent := actor.NewPID(actor.LocalAddress, "TestParent", "bar", "baz")
 
 	wg.Add(1)
-
-	childfn := func(c *actor.Context) {
-		switch c.Message().(type) {
+	childfn := func(ctx *actor.Context) {
+		switch ctx.Message().(type) {
 		case actor.Started:
-			is.True(c.Parent().Equals(parent)) // parent should match
-			is.Equal(len(c.Children()), 0)     // number of children should be zero
+			is.True(ctx.Parent().Equals(parent)) // parent should match
+			is.Equal(len(ctx.Children()), 0)     // number of children should be zero
 			wg.Done()
 		}
 	}
 
-	engine.SpawnFunc(func(c *actor.Context) {
-		switch c.Message().(type) {
+	engine.SpawnFunc(func(ctx *actor.Context) {
+		switch ctx.Message().(type) {
 		case actor.Started:
-			c.SpawnFunc(childfn, "child")
+			ctx.SpawnFunc(childfn, "child")
 		}
-	}, "foo", actor.WithTags("bar", "baz"))
+	}, "TestParent", actor.WithTags("bar", "baz"))
 
 	wg.Wait()
 }
@@ -85,13 +86,13 @@ func TestGetPID(t *testing.T) {
 	wg := &sync.WaitGroup{}
 
 	wg.Add(1)
-	engine.SpawnFunc(func(c *actor.Context) {
-		if _, ok := c.Message().(actor.Started); ok {
-			pid := c.GetPID("foo", "bar", "baz")
-			is.True(pid.Equals(c.PID()))
+	engine.SpawnFunc(func(ctx *actor.Context) {
+		if _, ok := ctx.Message().(actor.Started); ok {
+			pid := ctx.GetPID("TestGetPID", "bar", "baz")
+			is.True(pid.Equals(ctx.PID()))
 			wg.Done()
 		}
-	}, "foo", actor.WithTags("bar", "baz"))
+	}, "TestGetPID", actor.WithTags("bar", "baz"))
 
 	wg.Wait()
 }
@@ -104,8 +105,8 @@ func TestSpawnChild(t *testing.T) {
 	deadletter := engine.GetPID("engine", "deadletter")
 
 	wg.Add(1)
-	childFunc := func(c *actor.Context) {
-		switch c.Message().(type) {
+	childFunc := func(ctx *actor.Context) {
+		switch ctx.Message().(type) {
 		case actor.Stopped:
 		}
 	}
@@ -116,7 +117,7 @@ func TestSpawnChild(t *testing.T) {
 			ctx.SpawnFunc(childFunc, "child", actor.WithMaxRestarts(0))
 			wg.Done()
 		}
-	}, "parent", actor.WithMaxRestarts(0))
+	}, "TestSpawnChild", actor.WithMaxRestarts(0))
 
 	wg.Wait()
 
@@ -124,5 +125,5 @@ func TestSpawnChild(t *testing.T) {
 	engine.Poison(pid, stopwg)
 	stopwg.Wait()
 
-	is.Equal(deadletter, engine.GetPID("parent", "child"))
+	is.Equal(deadletter, engine.GetPID("TestSpawnChild", "child"))
 }

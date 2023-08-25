@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/renevo/actor"
 )
@@ -20,13 +19,13 @@ func newFoo() actor.Receiver {
 func (f *foo) Receive(ctx *actor.Context) {
 	switch msg := ctx.Message().(type) {
 	case actor.Initialized:
-		fmt.Println("foot has initialized")
+		ctx.Log().Info("foot has initialized")
 	case actor.Started:
-		fmt.Println("foo has started")
+		ctx.Log().Info("foo has started")
 	case *message:
-		fmt.Println("foo has received", msg.data)
+		ctx.Log().Info("foo has received", "data", msg.data)
 	case actor.Stopped:
-		fmt.Println("foo has stopped")
+		ctx.Log().Info("foo has stopped")
 	}
 }
 
