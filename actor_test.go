@@ -5,8 +5,8 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/matryer/is"
 	"github.com/renevo/actor"
-	"github.com/stretchr/testify/assert"
 )
 
 type TestReceiveFunc func(*testing.T, *actor.Context)
@@ -28,6 +28,8 @@ func (r *TestReceiver) Receive(ctx *actor.Context) {
 }
 
 func TestMiddleware(t *testing.T) {
+	is := is.New(t)
+
 	engine := actor.NewEngine()
 	callCount := 0
 
@@ -52,5 +54,5 @@ func TestMiddleware(t *testing.T) {
 	engine.Poison(pid, wg)
 	wg.Wait()
 
-	assert.Equal(t, callCount, 4, "middleware was not called correct amount of times")
+	is.Equal(callCount, 4) // middleware was not called correct amount of times
 }

@@ -2,11 +2,11 @@ package actor_test
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"sync"
 	"testing"
 
+	"github.com/matryer/is"
 	"github.com/renevo/actor"
 )
 
@@ -35,6 +35,8 @@ func (tp *testProcessor) Shutdown(wg *sync.WaitGroup) {
 }
 
 func TestInbox(t *testing.T) {
+	is := is.New(t)
+
 	inbox := actor.NewInbox(128)
 	inbox.Process(&testProcessor{processFn: func(env *actor.Envelope) {
 		t.Logf("TO: %+v; From: %+v; Message: %+v;", env.To, env.From, env.Message)
@@ -44,9 +46,7 @@ func TestInbox(t *testing.T) {
 	from := actor.NewPID(actor.LocalAddress, "from")
 
 	for i := 1; i <= 100; i++ {
-		if err := inbox.Deliver(&actor.Envelope{To: to, From: from, Message: fmt.Sprintf("Hello: %d", i)}); err != nil {
-			t.Errorf("Deliver Failure: %v", err)
-		}
+		is.NoErr(inbox.Deliver(&actor.Envelope{To: to, From: from, Message: fmt.Sprintf("Hello: %d", i)}))
 	}
 
 	// closes and waits for drain
@@ -57,8 +57,6 @@ func TestInbox(t *testing.T) {
 
 	// this should return closed inbox
 	for i := 1; i <= 100; i++ {
-		if err := inbox.Deliver(&actor.Envelope{To: to, From: from, Message: fmt.Sprintf("Hello: %d", i)}); !errors.Is(err, actor.ErrInboxClosed) {
-			t.Errorf("Unexpected Deliver Error: %v", err)
-		}
+		is.Equal(actor.ErrInboxClosed, inbox.Deliver(&actor.Envelope{To: to, From: from, Message: fmt.Sprintf("Hello: %d", i)}))
 	}
 }
