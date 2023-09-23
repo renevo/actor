@@ -43,10 +43,9 @@ func NewEngine(defaultOpts ...Option) *Engine {
 	e.registry.engine = e
 	e.pid = e.SpawnFunc(func(ctx *Context) {
 		switch msg := ctx.Message().(type) {
-		case *shutdownWaiter:
-			if msg.wg != nil {
-				msg.wg.Wait()
-			}
+		case Initialized, Started, Stopped:
+			ctx.Log().Debug("engine state change", "state", reflect.TypeOf(msg))
+
 		}
 	}, "engine")
 	e.pid.Address = LocalAddress
@@ -55,11 +54,8 @@ func NewEngine(defaultOpts ...Option) *Engine {
 		switch msg := ctx.Message().(type) {
 		case Initialized, Started, Stopped:
 			// if we have anything, add it here
+			ctx.Log().Debug("deadletter state change", "state", reflect.TypeOf(msg))
 
-		case *shutdownWaiter:
-			if msg.wg != nil {
-				msg.wg.Wait()
-			}
 		default:
 			ctx.Log().Warn("Deadletter", "to", ctx.target, "from", ctx.sender, "type", reflect.TypeOf(ctx.Message()))
 			// TODO: publish deadletter to Events once we have them
@@ -165,9 +161,7 @@ func (e *Engine) Shutdown(wg *sync.WaitGroup) {
 		e.Poison(pid, &shutdownWG)
 	}
 
-	// send these that will block until all the others are shutdown
-	e.Send(context.Background(), e.pid, &shutdownWaiter{wg: &shutdownWG})
-	e.Send(context.Background(), e.pid, &shutdownWaiter{wg: &shutdownWG})
+	shutdownWG.Wait()
 
 	// tell our engine/deadletter to die
 	e.Poison(e.pid, wg)
