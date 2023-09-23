@@ -18,11 +18,29 @@ func TestRestarts(t *testing.T) {
 		data int
 	}
 
+	var panicInInit bool
+	var panicInStart bool
+
 	pid := engine.SpawnFunc(func(ctx *actor.Context) {
 		switch msg := ctx.Message().(type) {
+		case actor.Initialized:
+			if !panicInInit {
+				panicInInit = true
+				panic("panic in init")
+			}
+
+			ctx.Log().Info("initd!")
 		case actor.Started:
+			if !panicInStart {
+				panicInStart = true
+				panic("panic in start")
+			}
+
+			ctx.Log().Info("started!")
+
 		case actor.Stopped:
 			ctx.Log().Info("stopped!")
+
 		case payload:
 			if msg.data != 10 {
 				panic("I failed to process this message")
@@ -30,7 +48,7 @@ func TestRestarts(t *testing.T) {
 				ctx.Log().Info("finally processed all my messsages after borking", "data", msg.data)
 			}
 		}
-	}, "TestRestarts", actor.WithRestartDelay(time.Millisecond*10), actor.WithTags("bar"))
+	}, "TestRestarts", actor.WithRestartDelay(time.Millisecond*10), actor.WithTags("bar"), actor.WithMaxRestarts(5))
 
 	engine.Send(context.Background(), pid, payload{1})
 	engine.Send(context.Background(), pid, payload{2})
@@ -44,19 +62,19 @@ func TestProcessInitStartOrder(t *testing.T) {
 	engine := actor.NewEngine()
 	wg := &sync.WaitGroup{}
 	var started, init bool
+	wg.Add(1)
 
 	pid := engine.SpawnFunc(func(ctx *actor.Context) {
 		switch ctx.Message().(type) {
 		case actor.Initialized:
-			ctx.Log().Info("init")
-			wg.Add(1)
+			ctx.Log().Info("init", "init", init, "started", started)
 			init = true
 		case actor.Started:
-			ctx.Log().Info("start")
+			ctx.Log().Info("start", "init", init, "started", started)
 			is.True(init)
 			started = true
 		case int:
-			ctx.Log().Info("msg")
+			ctx.Log().Info("msg", "init", init, "started", started)
 			is.True(started)
 			wg.Done()
 		}

@@ -49,6 +49,7 @@ func (in *Inbox) Deliver(env *Envelope) error {
 	select {
 	case <-in.closeCh:
 		return ErrInboxClosed
+
 	default:
 		in.box <- env
 	}

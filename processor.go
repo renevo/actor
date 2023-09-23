@@ -7,6 +7,23 @@ import (
 	"time"
 )
 
+type processorState byte
+
+var (
+	processorStateCreated     processorState = 1
+	processorStateInitialized processorState = 2
+	processorStateStarted     processorState = 3
+	processorStateStopped     processorState = 4
+)
+
+var (
+	envelopePool = sync.Pool{
+		New: func() any {
+			return new(Envelope)
+		},
+	}
+)
+
 type Processor interface {
 	PID() PID
 	Start()
@@ -21,26 +38,19 @@ type processor struct {
 	context  *Context
 	pid      PID
 	restarts int
-	pool     sync.Pool
+	state    processorState
+	init     sync.Once
 }
 
 func newProcessor(engine *Engine, opts *Options) *processor {
 	pid := NewPID(engine.pid.Address, opts.Name, opts.Tags...)
-	ctx := newContext(engine, pid)
 	proc := &processor{
+		state:   processorStateCreated,
 		pid:     pid,
 		inbox:   NewInbox(opts.InboxSize),
 		options: opts,
-		context: ctx,
-		// pool technically adds a tiny bit of CPU overhead (30ish ns), but will release some pressure on the GC
-		pool: sync.Pool{
-			New: func() any {
-				return new(Envelope)
-			},
-		},
+		context: newContext(engine, pid),
 	}
-
-	proc.inbox.Process(proc)
 
 	return proc
 }
@@ -50,35 +60,66 @@ func (p *processor) PID() PID {
 }
 
 func (p *processor) Send(ctx context.Context, to PID, msg any, from PID) {
-	envelope := p.pool.Get().(*Envelope)
-	envelope.To = to
-	envelope.From = from
-	envelope.Message = msg
-	envelope.Context = ctx
-	if envelope.Context == nil {
-		envelope.Context = p.context.engine.options.Context
+	env := envelopePool.Get().(*Envelope)
+	env.To = to
+	env.From = from
+	env.Message = msg
+	env.Context = ctx
+	if env.Context == nil {
+		env.Context = p.context.engine.options.Context
 	}
 
-	if err := p.inbox.Deliver(envelope); err != nil {
+	if err := p.inbox.Deliver(env); err != nil {
 		p.context.logger.Error("Failed to deliver message to inbox.", "inbox", p.pid, "from", from, "msg", reflect.TypeOf(msg), "err", err)
 	}
 }
 
 func (p *processor) Process(env *Envelope) {
-	defer p.pool.Put(env)
+	defer envelopePool.Put(env)
+
+	// uncomment this for low level message process logging, its super spammy if left on, even at trace level
+	// p.context.logger.Info("processor.Process", "backlog", len(p.inbox.box), "to", env.To, "from", env.From, "msg", reflect.TypeOf(env.Message), "content", env.Message)
 
 	defer func() {
 		if v := recover(); v != nil {
 			// TODO: send this message to a poison processor with the error associated with it
-			p.context.ctx = p.context.engine.options.Context
-			p.context.message = Stopped{}
-			p.context.receiver.Receive(p.context)
+
+			// only send the stop if in a valid state to actually stop
+			if p.state == processorStateStarted {
+				p.context.ctx = p.context.engine.options.Context
+				p.context.message = Stopped{}
+				p.context.receiver.Receive(p.context)
+			}
+
+			p.state = processorStateStopped
 
 			if p.options.MaxRestarts > 0 {
 				p.tryRestart(v)
 			}
 		}
 	}()
+
+	// TODO: Check to see if context.Deadline and drop if Options say we should
+	rcv := p.context.receiver
+
+	if p.state == processorStateCreated || p.state == processorStateStopped {
+		p.context.ctx = p.context.engine.options.Context
+		p.context.message = Initialized{}
+		p.applyMiddleware(rcv.Receive, p.options.Middleware...)(p.context)
+		p.state = processorStateInitialized
+	}
+
+	if p.state == processorStateInitialized {
+		p.context.ctx = p.context.engine.options.Context
+		p.context.message = Started{}
+		p.applyMiddleware(rcv.Receive, p.options.Middleware...)(p.context)
+		p.state = processorStateStarted
+	}
+
+	// just kicking off
+	if _, ok := env.Message.(initialize); ok {
+		return
+	}
 
 	if pill, ok := env.Message.(poisonPill); ok {
 		p.cleanup(pill.wg)
@@ -90,23 +131,17 @@ func (p *processor) Process(env *Envelope) {
 	p.context.target = env.To
 	p.context.ctx = env.Context
 
-	// TODO: Check to see if context.Deadline and drop if Options say we should
-	rcv := p.context.receiver
-
 	p.applyMiddleware(rcv.Receive, p.options.Middleware...)(p.context)
 }
 
 func (p *processor) Start() {
-	rcv := p.options.Receiver
-	p.context.receiver = rcv
+	p.context.receiver = p.options.Receiver
 
-	p.context.ctx = p.context.engine.options.Context
-	p.context.message = Initialized{}
-	p.applyMiddleware(rcv.Receive, p.options.Middleware...)(p.context)
-
-	p.context.ctx = p.context.engine.options.Context
-	p.context.message = Started{}
-	p.applyMiddleware(rcv.Receive, p.options.Middleware...)(p.context)
+	// kick off initialize of the actor if it hasn't already
+	p.init.Do(func() {
+		p.inbox.Process(p)
+		p.Send(context.Background(), p.pid, initialize{}, p.pid)
+	})
 }
 
 func (p *processor) Shutdown(wg *sync.WaitGroup) {
@@ -121,12 +156,8 @@ func (p *processor) applyMiddleware(rcv ReceiverFunc, middleware ...Middleware) 
 }
 
 func (p *processor) cleanup(wg *sync.WaitGroup) {
-	p.inbox.Close()
 	p.context.engine.registry.remove(p.pid)
-
-	p.context.ctx = p.context.engine.options.Context
-	p.context.message = Stopped{}
-	p.applyMiddleware(p.context.receiver.Receive, p.options.Middleware...)(p.context)
+	p.inbox.Close()
 
 	if p.context.parentContext != nil {
 		p.context.parentContext.children.Delete(p.pid.ID)
@@ -148,6 +179,15 @@ func (p *processor) cleanup(wg *sync.WaitGroup) {
 		}
 	}
 
+	// only send the stop if in a valid state to actually stop
+	if p.state == processorStateStarted {
+		p.context.ctx = p.context.engine.options.Context
+		p.context.message = Stopped{}
+		p.applyMiddleware(p.context.receiver.Receive, p.options.Middleware...)(p.context)
+	}
+
+	p.state = processorStateStopped
+
 	// send events
 	if wg != nil {
 		wg.Done()
@@ -157,13 +197,16 @@ func (p *processor) cleanup(wg *sync.WaitGroup) {
 func (p *processor) tryRestart(v any) {
 	p.restarts++
 
-	if p.restarts >= p.options.MaxRestarts {
-		p.context.logger.Error("Actor process max restarts exceeded, shutting down.", "pid", p.pid, "restarts", p.restarts)
+	if p.restarts > p.options.MaxRestarts {
+		p.context.logger.Error("Actor process max restarts exceeded, shutting down.", "restarts", p.restarts, "err", v)
 		p.cleanup(nil)
 		return
 	}
 
-	p.context.logger.Warn("Actor process restarting.", "pid", p.pid, "count", p.restarts, "maxRestarts", p.options.MaxRestarts, "err", v)
+	p.context.logger.Warn("Actor process restarting.", "restarts", p.restarts, "maxRestarts", p.options.MaxRestarts, "err", v)
 	time.Sleep(p.options.RestartDelay)
-	p.Start()
+
+	if len(p.inbox.box) == 0 {
+		p.Send(context.Background(), p.pid, initialize{}, p.pid)
+	}
 }

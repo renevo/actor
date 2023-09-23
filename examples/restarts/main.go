@@ -33,6 +33,8 @@ func main() {
 	engine := actor.NewEngine(actor.WithRestartDelay(time.Second * 1))
 	pid := engine.Spawn(newFoo(), "foo", actor.WithMaxRestarts(3))
 	engine.Send(context.Background(), pid, &message{data: "failed"})
+	engine.Send(context.Background(), pid, &message{data: "failed"})
+	engine.Send(context.Background(), pid, &message{data: "failed"})
 	engine.Send(context.Background(), pid, &message{data: "hello world!"})
 
 	engine.ShutdownAndWait()
