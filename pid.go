@@ -8,6 +8,10 @@ type PID struct {
 }
 
 func NewPID(address string, name string, tags ...string) PID {
+	if address == "" {
+		address = LocalAddress
+	}
+
 	return PID{
 		Address: address,
 		ID:      strings.Join(append([]string{name}, tags...), pidSeparator),
