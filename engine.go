@@ -48,7 +48,6 @@ func NewEngine(defaultOpts ...Option) *Engine {
 
 		}
 	}, "engine")
-	e.pid.Address = LocalAddress
 
 	e.deadletter = e.SpawnFunc(func(ctx *Context) {
 		switch msg := ctx.Message().(type) {
@@ -61,7 +60,6 @@ func NewEngine(defaultOpts ...Option) *Engine {
 			// TODO: publish deadletter to Events once we have them
 		}
 	}, "engine", WithTags("deadletter"), WithInboxSize(defaultInboxSize*4))
-	e.deadletter.Address = LocalAddress
 
 	return e
 }
